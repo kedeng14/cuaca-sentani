@@ -35,16 +35,17 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
 st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
-# 4. Zona Waktu & Parameter
+# 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-lat, lon = -2.5771, 140.5057
+# UPDATE: Koordinat presisi sesuai permintaan user
+lat, lon = -2.5756744335142865, 140.5185071099937
 
 # 5. Bagian Peta Interaktif
-st.subheader("📍 Lokasi Titik Analisis")
+st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=11)
-st.caption(f"Koordinat: {lat}, {lon} (Area Sentani & Sekitarnya)")
+st.map(map_data, zoom=13) # Zoom lebih dalam karena koordinat presisi
+st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
 # 6. Konfigurasi Model
@@ -121,7 +122,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo
     </div>
     """, 
     unsafe_allow_html=True
