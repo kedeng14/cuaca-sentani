@@ -47,7 +47,7 @@ st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 # 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-lat, lon = -2.5756744335142865, 140.5185071099937
+lat, lon = -2.5757, 140.5185
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
@@ -169,4 +169,5 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
+
 
