@@ -8,6 +8,12 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
+# TAMBAHAN LOGO DI SIDEBAR
+try:
+    st.sidebar.image("bmkg.png", width=150)
+except:
+    st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
+
 # 2. Fungsi Pendukung
 def safe_int(val):
     try:
