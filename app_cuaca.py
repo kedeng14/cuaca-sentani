@@ -5,9 +5,10 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 
+# 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# Fungsi pengaman untuk angka kosong (NaN)
+# 2. Fungsi Pendukung
 def safe_int(val):
     try:
         if val is None or np.isnan(val): return 0
@@ -30,12 +31,23 @@ def degrees_to_direction(deg):
     idx = int((deg + 22.5) / 45) % 8
     return directions[idx]
 
+# 3. Header Dashboard
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
-st.markdown("---")
+st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
+# 4. Zona Waktu & Parameter
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
+lat, lon = -2.5771, 140.5057
 
+# 5. Bagian Peta Interaktif
+st.subheader("📍 Lokasi Titik Analisis")
+map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
+st.map(map_data, zoom=11)
+st.caption(f"Koordinat: {lat}, {lon} (Area Sentani & Sekitarnya)")
+st.markdown("---")
+
+# 6. Konfigurasi Model
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
@@ -43,18 +55,22 @@ model_info = {
 }
 
 params = {
-    "latitude": -2.5771, "longitude": 140.5057,
+    "latitude": lat, "longitude": lon,
     "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
                "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
     "models": list(model_info.keys()),
     "timezone": "Asia/Jayapura", "forecast_days": 3
 }
 
+# 7. Pengambilan Data & Visualisasi
 try:
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
+    st.sidebar.success(f"✅ Koneksi Server Stabil")
+    st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
+    
     pilihan_rentang = []
     for i in range(2): 
         date_target = (now_wit + timedelta(days=i)).date()
@@ -63,8 +79,6 @@ try:
         pilihan_rentang.append((18, 24, "MALAM", date_target))
         pilihan_rentang.append((0, 6, "DINI HARI", date_target + timedelta(days=1)))
 
-    st.sidebar.info(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
-    
     for start_h, end_h, label, t_date in pilihan_rentang:
         if t_date == now_wit.date() and now_wit.hour >= end_h: continue
         
@@ -94,9 +108,21 @@ try:
                     "Curah (mm)": round(np.nan_to_num(prec), 1),
                     "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
                 })
+            
             st.table(pd.DataFrame(data_tabel))
             if all_codes:
                 st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
 
 except Exception as e:
-    st.error(f"Gagal memproses data: {e}")
+    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
+
+# 8. Footer Copyright
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 0.8em;'>
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
