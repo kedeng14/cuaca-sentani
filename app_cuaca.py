@@ -141,4 +141,31 @@ try:
                 w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
 
                 if not np.isnan(code): all_codes.append(code)
-                data
+                data_tabel.append({
+                    "Model": m.split('_')[0].upper(), 
+                    "Asal": negara, 
+                    "Kondisi": get_weather_desc(code),
+                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
+                    "Kelembaban (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
+                    "Peluang Hujan": f"{safe_int(prob)}%", 
+                    "Curah (mm)": round(np.nan_to_num(prec), 1),
+                    "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
+                })
+            
+            st.table(pd.DataFrame(data_tabel))
+            if all_codes:
+                st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
+
+except Exception as e:
+    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
+
+# 8. Footer Copyright
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; color: gray; font-size: 0.8em;'>
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
