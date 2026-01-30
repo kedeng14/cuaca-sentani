@@ -33,18 +33,17 @@ def degrees_to_direction(deg):
 
 # 3. Header Dashboard
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
-st.markdown("Analisis Komparasi 7 Model Global Real-Time")
+st.markdown("Analisis Komparasi Model Global Real-Time")
 
 # 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-# UPDATE: Koordinat presisi sesuai permintaan user
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=13) # Zoom lebih dalam karena koordinat presisi
+st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
@@ -52,21 +51,35 @@ st.markdown("---")
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
-    "ukmo_seamless": "Inggris"
+    "ukmo_seamless": "Inggris", "bom_access": "Australia"
 }
 
-params = {
-    "latitude": lat, "longitude": lon,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
-               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-    "models": list(model_info.keys()),
-    "timezone": "Asia/Jayapura", "forecast_days": 3
-}
-
-# 7. Pengambilan Data & Visualisasi
+# 7. Pengambilan Data
 try:
-    res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
-    df = pd.DataFrame(res["hourly"])
+    # Request 1: Model Umum
+    models_main = ["ecmwf_ifs", "gfs_seamless", "jma_seamless", "icon_seamless", "gem_seamless", "meteofrance_seamless", "ukmo_seamless"]
+    params_main = {
+        "latitude": lat, "longitude": lon,
+        "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
+        "models": models_main, "timezone": "Asia/Jayapura", "forecast_days": 3
+    }
+    res_main = requests.get("https://api.open-meteo.com/v1/forecast", params=params_main).json()
+    df = pd.DataFrame(res_main["hourly"])
+
+    # Request 2: Khusus BOM Australia (ACCESS-G)
+    params_bom = {
+        "latitude": lat, "longitude": lon,
+        "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
+        "models": "bom_access", "timezone": "Asia/Jayapura", "forecast_days": 3
+    }
+    res_bom = requests.get("https://api.open-meteo.com/v1/forecast", params=params_bom).json()
+    df_bom = pd.DataFrame(res_bom["hourly"])
+
+    # Gabungkan Data Australia ke DataFrame Utama
+    for col in df_bom.columns:
+        if col != 'time':
+            df[col] = df_bom[col]
+
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
     st.sidebar.success(f"✅ Koneksi Server Stabil")
@@ -90,9 +103,14 @@ try:
             data_tabel = []
             all_codes = []
             for m, negara in model_info.items():
-                code = df_kat[f"weather_code_{m}"].max()
-                t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                h_min, h_max = df_kat[f"relative_humidity_2m_{m}"].min(), df_kat[f"relative_humidity_2m_{m}"].max()
+                col_code = f"weather_code_{m}"
+                if col_code not in df_kat.columns: continue
+                
+                code = df_kat[col_code].max()
+                t_min = df_kat[f"temperature_2m_{m}"].min()
+                t_max = df_kat[f"temperature_2m_{m}"].max()
+                h_min = df_kat[f"relative_humidity_2m_{m}"].min()
+                h_max = df_kat[f"relative_humidity_2m_{m}"].max()
                 prob = df_kat[f"precipitation_probability_{m}"].max()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
@@ -122,11 +140,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
-    </div>
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO, BOM)
     </div>
     """, 
     unsafe_allow_html=True
 )
-
-
