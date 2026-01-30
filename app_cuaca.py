@@ -69,6 +69,31 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
+    # --- TAMBAHAN: GRAFIK TREN CUACA ---
+    st.subheader("📊 Grafik Tren Cuaca (48 Jam Ke Depan)")
+    col_chart1, col_chart2 = st.columns(2)
+    
+    # Menyiapkan data grafik suhu (Rata-rata dari semua model)
+    temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
+    df_temp_chart = df[['time']].copy()
+    df_temp_chart['Suhu (°C)'] = df[temp_cols].mean(axis=1)
+    
+    # Menyiapkan data grafik hujan (Maksimum peluang dari semua model)
+    prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
+    df_prob_chart = df[['time']].copy()
+    df_prob_chart['Peluang Hujan (%)'] = df[prob_cols].max(axis=1)
+
+    with col_chart1:
+        st.write("**Tren Suhu (°C)**")
+        st.line_chart(df_temp_chart.set_index('time').head(48))
+
+    with col_chart2:
+        st.write("**Tren Peluang Hujan (%)**")
+        st.area_chart(df_prob_chart.set_index('time').head(48))
+    
+    st.markdown("---")
+    # --- AKHIR BAGIAN GRAFIK ---
+
     st.sidebar.success(f"✅ Koneksi Server Stabil")
     st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
@@ -124,9 +149,6 @@ st.markdown(
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
         Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
     </div>
-    </div>
     """, 
     unsafe_allow_html=True
 )
-
-
