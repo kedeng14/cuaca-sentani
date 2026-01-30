@@ -41,7 +41,7 @@ def degrees_to_direction(deg):
     return directions[idx]
 
 # 3. Header Dashboard
-st.title("🛰️ Dashboard Operasional Cuaca Sentani")
+st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
 st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
 # 4. Zona Waktu & Parameter Presisi
@@ -169,3 +169,4 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
+
