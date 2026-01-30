@@ -145,7 +145,7 @@ try:
                     "Asal": negara, 
                     "Kondisi": get_weather_desc(code),
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                    "Lembap (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
+                    "Kelembaban (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
                     "Peluang Hujan": f"{safe_int(prob)}%", 
                     "Curah (mm)": round(np.nan_to_num(prec), 1),
                     "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
@@ -168,3 +168,4 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
+
