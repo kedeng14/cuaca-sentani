@@ -8,7 +8,15 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# Fungsi pengaman untuk angka kosong (NaN)
+# LOGO SIDEBAR
+try:
+    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
+    with col2:
+        st.image("bmkg.png", width=150)
+except:
+    pass
+
+# 2. Fungsi Pendukung
 def safe_int(val):
     try:
         if val is None or np.isnan(val): return 0
@@ -31,19 +39,14 @@ def degrees_to_direction(deg):
     idx = int((deg + 22.5) / 45) % 8
     return directions[idx]
 
-# --- LOGO SIDEBAR ---
-try:
-    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2:
-        st.image("bmkg.png", width=150)
-except:
-    pass
-
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
 st.markdown("---")
 
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
+
+# GUNAKAN KOORDINAT DARI KODE ANDA YANG BERHASIL
+lat, lon = -2.5771, 140.5057
 
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
@@ -51,24 +54,24 @@ model_info = {
     "ukmo_seamless": "Inggris"
 }
 
-params = {
-    "latitude": -2.5771, "longitude": 140.5057,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
-               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-    "models": list(model_info.keys()),
-    "timezone": "Asia/Jayapura", "forecast_days": 3
-}
-
+# 3. Pengambilan Data
 try:
-    # JARING PENGAMAN: Cek respon sebelum diproses jadi DataFrame
-    response = requests.get("https://api.open-meteo.com/v1/forecast", params=params)
-    res = response.json()
+    # Trik: Menggunakan Header browser agar tidak diblokir server
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
+    # Memanggil model satu per satu dalam string agar lebih stabil
+    models_param = ",".join(model_info.keys())
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability,precipitation&models={models_param}&timezone=Asia%2FJayapura&forecast_days=3"
+    
+    res = requests.get(url, headers=headers).json()
+
     if "hourly" in res:
         df = pd.DataFrame(res["hourly"])
         df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-        # LOGIKA URUTAN WAKTU (Dini Hari Muncul jam 00 WIT)
+        st.sidebar.info(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
+
+        # Logika Urutan Waktu
         pilihan_rentang = []
         urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
 
@@ -81,23 +84,23 @@ try:
                 else:
                     pilihan_rentang.append((start_h, end_h, label, date_target))
 
-        st.sidebar.info(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
-        
         for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
             df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
             if df_kat.empty: continue
             
-            # Perintah Anda: Buka otomatis 4 tabel pertama
+            # Buka 4 tabel pertama otomatis
             with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=(idx < 4)):
                 data_tabel = []
                 all_codes = []
                 for m, negara in model_info.items():
-                    # Cek kolom model tersedia
-                    if f"weather_code_{m}" not in df.columns: continue
+                    # Validasi apakah kolom model ada
+                    col_name = f"weather_code_{m}"
+                    if col_name not in df.columns: continue
                     
-                    code = df_kat[f"weather_code_{m}"].max()
-                    t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                    h_min, h_max = df_kat[f"relative_humidity_2m_{m}"].min(), df_kat[f"relative_humidity_2m_{m}"].max()
+                    code = df_kat[col_name].max()
+                    t_min = df_kat[f"temperature_2m_{m}"].min()
+                    t_max = df_kat[f"temperature_2m_{m}"].max()
+                    h_max = df_kat[f"relative_humidity_2m_{m}"].max()
                     prob = df_kat[f"precipitation_probability_{m}"].max()
                     prec = df_kat[f"precipitation_{m}"].sum()
                     w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
@@ -108,18 +111,18 @@ try:
                         "Model": m.split('_')[0].upper(), 
                         "Asal": negara, 
                         "Kondisi": get_weather_desc(code),
-                        "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                        "Lembap (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
+                        "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}", 
+                        "Lembap (%)": f"{safe_int(h_max)}%",
                         "Peluang Hujan": f"{safe_int(prob)}%", 
                         "Curah (mm)": round(np.nan_to_num(prec), 1),
-                        "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
+                        "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}"
                     })
                 
                 st.table(pd.DataFrame(data_tabel))
                 if all_codes:
                     st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
     else:
-        st.error("⚠️ Data 'hourly' tidak ditemukan. Server API mungkin sedang sibuk.")
+        st.error("⚠️ Server API Open-Meteo menolak permintaan. Silakan tunggu 1 menit (Rate Limit) lalu refresh.")
 
 except Exception as e:
     st.error(f"Gagal memproses data: {e}")
