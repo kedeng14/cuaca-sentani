@@ -8,14 +8,13 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# TAMBAHAN LOGO DI SIDEBAR
+# LOGO DI SIDEBAR
 try:
-    # Menggunakan kolom di sidebar agar posisi logo lebih ke tengah
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
     with col2:
         st.image("bmkg.png", width=150)
 except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
+    st.sidebar.warning("File bmkg.png tidak ditemukan")
 
 # 2. Fungsi Pendukung
 def safe_int(val):
@@ -40,60 +39,45 @@ def degrees_to_direction(deg):
     idx = int((deg + 22.5) / 45) % 8
     return directions[idx]
 
-# 3. Header Dashboard
+# 3. Header
 st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
-st.markdown("Analisis Komparasi 7 Model Global Real-Time")
+st.markdown("---")
 
-# 4. Zona Waktu & Parameter (Koordinat disederhanakan menjadi 4 angka di belakang koma)
+# 4. Parameter
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
 lat, lon = -2.5757, 140.5185
 
-# 5. Bagian Peta Interaktif
-st.subheader("📍 Lokasi Titik Analisis Presisi")
+# 5. Peta
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
-st.markdown("---")
 
-# 6. Konfigurasi Model
+# 6. Model & Pengambilan Data
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
     "ukmo_seamless": "Inggris"
 }
 
-params = {
-    "latitude": lat, "longitude": lon,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
-               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-    "models": list(model_info.keys()),
-    "timezone": "Asia/Jayapura", "forecast_days": 3
-}
-
-# 7. Pengambilan Data & Visualisasi
 try:
-    res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
+    # Menggunakan URL langsung agar lebih ringan bagi server
+    model_list = ",".join(model_info.keys())
+    api_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability,precipitation&models={model_list}&timezone=Asia%2FJayapura&forecast_days=3"
     
-    # Validasi data untuk menghindari error 'hourly'
+    response = requests.get(api_url, timeout=15)
+    res = response.json()
+
     if "hourly" in res:
         df = pd.DataFrame(res["hourly"])
         df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-        # --- GRAFIK TREN CUACA DIHAPUS SESUAI PERMINTAAN ---
-
-        st.sidebar.success(f"✅ Koneksi Server Stabil")
-        st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
+        st.sidebar.success(f"✅ Koneksi Stabil")
+        st.sidebar.info(f"🕒 Update: {now_wit.strftime('%H:%M:%S')} WIT")
         
-        # LOGIKA URUTAN WAKTU
+        # Logika Waktu
         pilihan_rentang = []
-        urutan_waktu = [
-            (0, 6, "DINI HARI"),
-            (6, 12, "PAGI"),
-            (12, 18, "SIANG"),
-            (18, 24, "MALAM")
-        ]
-
+        urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
         for i in range(2): 
             date_target = (now_wit + timedelta(days=i)).date()
             for start_h, end_h, label in urutan_waktu:
@@ -103,25 +87,22 @@ try:
                 else:
                     pilihan_rentang.append((start_h, end_h, label, date_target))
 
-        # TAMPILKAN TABEL DENGAN 4 BLOK PERTAMA TERBUKA OTOMATIS
+        # Tampilkan Tabel
         for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
             df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
             if df_kat.empty: continue
             
-            # Penentu expander: 4 tabel pertama (indeks 0, 1, 2, 3) akan terbuka otomatis
-            is_expanded = idx < 4
-            
-            with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
+            with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %b %Y')}", expanded=(idx < 4)):
                 data_tabel = []
                 all_codes = []
                 for m, negara in model_info.items():
-                    # Cek keberadaan kolom model di data
-                    col_weather = f"weather_code_{m}"
-                    if col_weather not in df.columns: continue
-
-                    code = df_kat[col_weather].max()
-                    t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                    h_min, h_max = df_kat[f"relative_humidity_2m_{m}"].min(), df_kat[f"relative_humidity_2m_{m}"].max()
+                    col_code = f"weather_code_{m}"
+                    if col_code not in df.columns: continue
+                    
+                    code = df_kat[col_code].max()
+                    t_min = df_kat[f"temperature_2m_{m}"].min()
+                    t_max = df_kat[f"temperature_2m_{m}"].max()
+                    h_max = df_kat[f"relative_humidity_2m_{m}"].max()
                     prob = df_kat[f"precipitation_probability_{m}"].max()
                     prec = df_kat[f"precipitation_{m}"].sum()
                     w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
@@ -132,30 +113,21 @@ try:
                         "Model": m.split('_')[0].upper(), 
                         "Asal": negara, 
                         "Kondisi": get_weather_desc(code),
-                        "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                        "Kelembaban (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
-                        "Peluang Hujan": f"{safe_int(prob)}%", 
-                        "Curah (mm)": round(np.nan_to_num(prec), 1),
-                        "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
+                        "Suhu": f"{t_min:.1f}-{t_max:.1f}", 
+                        "Lembap": f"{safe_int(h_max)}%",
+                        "Peluang": f"{safe_int(prob)}%", 
+                        "Curah": f"{prec:.1f}mm",
+                        "Angin": f"{w_spd:.1f} {degrees_to_direction(w_dir)}"
                     })
                 
-                if data_tabel:
-                    st.table(pd.DataFrame(data_tabel))
-                    if all_codes:
-                        st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
+                st.table(pd.DataFrame(data_tabel))
+                if all_codes:
+                    st.warning(f"⚠️ Kesimpulan: {get_weather_desc(max(all_codes))}")
     else:
-        st.error("⚠️ Data tidak tersedia dari server. Silakan refresh atau tunggu beberapa saat.")
+        st.warning("⚠️ Server sedang sibuk (Rate Limit). Tunggu 2 menit lalu Rerun.")
 
 except Exception as e:
-    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
+    st.error(f"⚠️ Gangguan: {e}")
 
-# 8. Footer Copyright
 st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
+st.caption("Copyright © 2026 Kedeng V | Stamet Sentani")
