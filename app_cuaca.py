@@ -8,24 +8,17 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# --- PENGATURAN LOGO DI SIDEBAR (CENTERED) ---
+# --- LOGO BMKG DI SIDEBAR (RATA TENGAH) ---
 with st.sidebar:
     st.markdown(
         """
         <div style="display: flex; justify-content: center;">
-            <img src="https://raw.githubusercontent.com/kedeng-v/cuaca-sentani/main/bmkg.png" width="150">
+            <img src="https://raw.githubusercontent.com/kedeng-v/cuaca-sentani/main/bmkg.png" width="130">
         </div>
         """,
         unsafe_allow_html=True
     )
-    # Spasi sedikit agar tidak terlalu mepet dengan status koneksi
-    st.write("")
-    
-# TAMBAHAN LOGO DI SIDEBAR
-try:
-    st.sidebar.image("bmkg.png", width=150)
-except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
+    st.markdown("<br>", unsafe_allow_html=True) # Tambah sedikit ruang kosong di bawah logo
 
 # 2. Fungsi Pendukung
 def safe_int(val):
@@ -57,13 +50,12 @@ st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 # 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-# UPDATE: Koordinat presisi sesuai permintaan user
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=13) # Zoom lebih dalam karena koordinat presisi
+st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
@@ -88,16 +80,14 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # --- TAMBAHAN: GRAFIK TREN CUACA ---
+    # --- GRAFIK TREN CUACA ---
     st.subheader("📊 Grafik Tren Cuaca (48 Jam Ke Depan)")
     col_chart1, col_chart2 = st.columns(2)
     
-    # Menyiapkan data grafik suhu (Rata-rata dari semua model)
     temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
     df_temp_chart = df[['time']].copy()
     df_temp_chart['Suhu (°C)'] = df[temp_cols].mean(axis=1)
     
-    # Menyiapkan data grafik hujan (Maksimum peluang dari semua model)
     prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
     df_prob_chart = df[['time']].copy()
     df_prob_chart['Peluang Hujan (%)'] = df[prob_cols].max(axis=1)
@@ -111,7 +101,6 @@ try:
         st.area_chart(df_prob_chart.set_index('time').head(48))
     
     st.markdown("---")
-    # --- AKHIR BAGIAN GRAFIK ---
 
     st.sidebar.success(f"✅ Koneksi Server Stabil")
     st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
@@ -166,9 +155,8 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo
     </div>
     """, 
     unsafe_allow_html=True
 )
-
