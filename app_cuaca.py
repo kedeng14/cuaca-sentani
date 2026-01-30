@@ -1,4 +1,4 @@
-import streamlit as st
+⚠️ Terjadi gangguan koneksi data: 'hourly'import streamlit as st
 import requests
 import pandas as pd
 import numpy as np
@@ -35,7 +35,7 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
 st.markdown("Analisis Komparasi Model Global Real-Time")
 
-# 4. Zona Waktu & Parameter Presisi
+# 4. Zona Waktu & Parameter
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
@@ -54,9 +54,9 @@ model_info = {
     "ukmo_seamless": "Inggris", "bom_access": "Australia"
 }
 
-# 7. Pengambilan Data
+# 7. Pengambilan Data Adaptif
 try:
-    # Request 1: Model Umum
+    # Ambil data utama (Eropa, Amerika, dkk)
     models_main = ["ecmwf_ifs", "gfs_seamless", "jma_seamless", "icon_seamless", "gem_seamless", "meteofrance_seamless", "ukmo_seamless"]
     params_main = {
         "latitude": lat, "longitude": lon,
@@ -64,21 +64,27 @@ try:
         "models": models_main, "timezone": "Asia/Jayapura", "forecast_days": 3
     }
     res_main = requests.get("https://api.open-meteo.com/v1/forecast", params=params_main).json()
-    df = pd.DataFrame(res_main["hourly"])
+    
+    if 'hourly' in res_main:
+        df = pd.DataFrame(res_main["hourly"])
+    else:
+        st.error("Gagal menarik data utama dari server.")
+        st.stop()
 
-    # Request 2: Khusus BOM Australia (ACCESS-G)
-    params_bom = {
-        "latitude": lat, "longitude": lon,
-        "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-        "models": "bom_access", "timezone": "Asia/Jayapura", "forecast_days": 3
-    }
-    res_bom = requests.get("https://api.open-meteo.com/v1/forecast", params=params_bom).json()
-    df_bom = pd.DataFrame(res_bom["hourly"])
-
-    # Gabungkan Data Australia ke DataFrame Utama
-    for col in df_bom.columns:
-        if col != 'time':
-            df[col] = df_bom[col]
+    # Ambil data BOM Australia secara terpisah (Jika gagal tidak akan merusak tabel utama)
+    try:
+        params_bom = {
+            "latitude": lat, "longitude": lon,
+            "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
+            "models": "bom_access", "timezone": "Asia/Jayapura", "forecast_days": 3
+        }
+        res_bom = requests.get("https://api.open-meteo.com/v1/forecast", params=params_bom).json()
+        if 'hourly' in res_bom:
+            df_bom = pd.DataFrame(res_bom["hourly"])
+            for col in df_bom.columns:
+                if col != 'time': df[col] = df_bom[col]
+    except:
+        st.sidebar.warning("⚠️ Data Australia (BOM) sedang tidak tersedia.")
 
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
@@ -103,10 +109,10 @@ try:
             data_tabel = []
             all_codes = []
             for m, negara in model_info.items():
-                col_code = f"weather_code_{m}"
-                if col_code not in df_kat.columns: continue
+                col_target = f"weather_code_{m}"
+                if col_target not in df_kat.columns: continue
                 
-                code = df_kat[col_code].max()
+                code = df_kat[col_target].max()
                 t_min = df_kat[f"temperature_2m_{m}"].min()
                 t_max = df_kat[f"temperature_2m_{m}"].max()
                 h_min = df_kat[f"relative_humidity_2m_{m}"].min()
@@ -118,13 +124,10 @@ try:
 
                 if not np.isnan(code): all_codes.append(code)
                 data_tabel.append({
-                    "Model": m.split('_')[0].upper(), 
-                    "Asal": negara, 
-                    "Kondisi": get_weather_desc(code),
+                    "Model": m.split('_')[0].upper(), "Asal": negara, "Kondisi": get_weather_desc(code),
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
                     "Lembap (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
-                    "Peluang Hujan": f"{safe_int(prob)}%", 
-                    "Curah (mm)": round(np.nan_to_num(prec), 1),
+                    "Peluang Hujan": f"{safe_int(prob)}%", "Curah (mm)": round(np.nan_to_num(prec), 1),
                     "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
                 })
             
@@ -133,14 +136,14 @@ try:
                 st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
 
 except Exception as e:
-    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
+    st.error(f"⚠️ Gangguan sistem: {e}")
 
 # 8. Footer Copyright
 st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO, BOM)
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo
     </div>
     """, 
     unsafe_allow_html=True
