@@ -8,9 +8,8 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# TAMBAHAN LOGO DI SIDEBAR (Sesuai permintaan Anda)
+# TAMBAHAN LOGO DI SIDEBAR (Sesuai perintah)
 try:
-    # Menggunakan kolom di sidebar agar posisi logo lebih ke tengah
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
     with col2:
         st.image("bmkg.png", width=150)
@@ -44,10 +43,10 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
 st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
-# 4. Zona Waktu & Parameter Presisi
+# 4. Zona Waktu & Parameter (Koordinat Disederhanakan seperti kode kedua agar stabil)
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-lat, lon = -2.5757, 140.5185
+lat, lon = -2.5771, 140.5057
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
@@ -73,9 +72,10 @@ params = {
 
 # 7. Pengambilan Data & Visualisasi
 try:
-    res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
+    # PERBAIKAN: Menambahkan pengecekan respon seperti perbandingan data kedua
+    response = requests.get("https://api.open-meteo.com/v1/forecast", params=params)
+    res = response.json()
     
-    # HANYA UBAH BAGIAN INI: Menambahkan pengecekan agar tidak error 'hourly'
     if "hourly" in res:
         df = pd.DataFrame(res["hourly"])
         df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
@@ -103,16 +103,11 @@ try:
         st.markdown("---")
 
         st.sidebar.success(f"✅ Koneksi Server Stabil")
-        st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
+        st.sidebar.info(f"🕒 **Update Terakhir:** {now_wit.strftime('%H:%M:%S')} WIT")
         
         # LOGIKA URUTAN WAKTU
         pilihan_rentang = []
-        urutan_waktu = [
-            (0, 6, "DINI HARI"),
-            (6, 12, "PAGI"),
-            (12, 18, "SIANG"),
-            (18, 24, "MALAM")
-        ]
+        urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
 
         for i in range(2): 
             date_target = (now_wit + timedelta(days=i)).date()
@@ -123,20 +118,19 @@ try:
                 else:
                     pilihan_rentang.append((start_h, end_h, label, date_target))
 
-        # TAMPILKAN TABEL DENGAN 4 BLOK PERTAMA TERBUKA OTOMATIS
+        # TAMPILKAN TABEL DENGAN 4 BLOK PERTAMA TERBUKA OTOMATIS (Sesuai perintah)
         for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
             df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
             if df_kat.empty: continue
             
-            # Penentu expander: 4 tabel pertama (indeks 0, 1, 2, 3) akan terbuka otomatis
+            # Perintah: Buka otomatis 4 tabel pertama
             is_expanded = idx < 4
             
             with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
                 data_tabel = []
                 all_codes = []
                 for m, negara in model_info.items():
-                    # Tambahan pengecekan kolom agar stabil
-                    if f"weather_code_{m}" not in df_kat.columns: continue
+                    if f"weather_code_{m}" not in df.columns: continue
                     
                     code = df_kat[f"weather_code_{m}"].max()
                     t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
@@ -152,29 +146,21 @@ try:
                         "Asal": negara, 
                         "Kondisi": get_weather_desc(code),
                         "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                        "Kelembaban (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
+                        "Lembap (%)": f"{safe_int(h_min)}-{safe_int(h_max)}",
                         "Peluang Hujan": f"{safe_int(prob)}%", 
                         "Curah (mm)": round(np.nan_to_num(prec), 1),
                         "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
                     })
                 
-                if data_tabel:
-                    st.table(pd.DataFrame(data_tabel))
-                    if all_codes:
-                        st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
+                st.table(pd.DataFrame(data_tabel))
+                if all_codes:
+                    st.warning(f"⚠️ **KESIMPULAN SKENARIO TERBURUK:** {get_weather_desc(max(all_codes))}")
     else:
-        st.warning("⚠️ Data sedang diperbarui oleh server pusat. Silakan tunggu 1 menit lalu tekan tombol Rerun di pojok kanan atas.")
+        st.error("⚠️ Server API sedang sibuk. Silakan refresh kembali.")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
 
 # 8. Footer Copyright
 st.markdown("---")
-st.markdown(
-    """
-    <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
-    </div>
-    """, 
-    unsafe_allow_html=True
-)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Stamet Sentani</div>", unsafe_allow_html=True)
