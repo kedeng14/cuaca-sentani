@@ -102,7 +102,7 @@ try:
     st.sidebar.success(f"✅ Koneksi Server Stabil")
     st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
-    # PERBAIKAN URUTAN WAKTU (DINI HARI PERTAMA)
+    # LOGIKA URUTAN WAKTU
     pilihan_rentang = []
     urutan_waktu = [
         (0, 6, "DINI HARI"),
@@ -120,12 +120,13 @@ try:
             else:
                 pilihan_rentang.append((start_h, end_h, label, date_target))
 
-    for start_h, end_h, label, t_date in pilihan_rentang:
+    # TAMPILKAN TABEL DENGAN 4 BLOK PERTAMA TERBUKA OTOMATIS
+    for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
-        # Penentu expander: hanya tabel urutan pertama yang terbuka
-        is_expanded = (label == pilihan_rentang[0][2] and t_date == pilihan_rentang[0][3])
+        # Penentu expander: 4 tabel pertama (indeks 0, 1, 2, 3) akan terbuka otomatis
+        is_expanded = idx < 4
         
         with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
             data_tabel = []
@@ -168,4 +169,3 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
-
