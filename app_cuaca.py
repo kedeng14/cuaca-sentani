@@ -8,9 +8,12 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# TAMBAHAN LOGO DI SIDEBAR
+# TAMBAHAN LOGO DI SIDEBAR (Sesuai permintaan Anda)
 try:
-    st.sidebar.image("bmkg.png", width=150)
+    # Menggunakan kolom di sidebar agar posisi logo lebih ke tengah
+    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
+    with col2:
+        st.image("bmkg.png", width=150)
 except:
     st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
 
@@ -44,13 +47,12 @@ st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 # 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-# UPDATE: Koordinat presisi sesuai permintaan user
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=13) # Zoom lebih dalam karena koordinat presisi
+st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
@@ -75,16 +77,14 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # --- TAMBAHAN: GRAFIK TREN CUACA ---
+    # --- GRAFIK TREN CUACA ---
     st.subheader("📊 Grafik Tren Cuaca (48 Jam Ke Depan)")
     col_chart1, col_chart2 = st.columns(2)
     
-    # Menyiapkan data grafik suhu (Rata-rata dari semua model)
     temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
     df_temp_chart = df[['time']].copy()
     df_temp_chart['Suhu (°C)'] = df[temp_cols].mean(axis=1)
     
-    # Menyiapkan data grafik hujan (Maksimum peluang dari semua model)
     prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
     df_prob_chart = df[['time']].copy()
     df_prob_chart['Peluang Hujan (%)'] = df[prob_cols].max(axis=1)
@@ -98,26 +98,36 @@ try:
         st.area_chart(df_prob_chart.set_index('time').head(48))
     
     st.markdown("---")
-    # --- AKHIR BAGIAN GRAFIK ---
 
     st.sidebar.success(f"✅ Koneksi Server Stabil")
     st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
+    # PERBAIKAN URUTAN WAKTU (DINI HARI PERTAMA)
     pilihan_rentang = []
+    urutan_waktu = [
+        (0, 6, "DINI HARI"),
+        (6, 12, "PAGI"),
+        (12, 18, "SIANG"),
+        (18, 24, "MALAM")
+    ]
+
     for i in range(2): 
         date_target = (now_wit + timedelta(days=i)).date()
-        pilihan_rentang.append((6, 12, "PAGI", date_target))
-        pilihan_rentang.append((12, 18, "SIANG", date_target))
-        pilihan_rentang.append((18, 24, "MALAM", date_target))
-        pilihan_rentang.append((0, 6, "DINI HARI", date_target + timedelta(days=1)))
+        for start_h, end_h, label in urutan_waktu:
+            if date_target == now_wit.date():
+                if now_wit.hour < end_h:
+                    pilihan_rentang.append((start_h, end_h, label, date_target))
+            else:
+                pilihan_rentang.append((start_h, end_h, label, date_target))
 
     for start_h, end_h, label, t_date in pilihan_rentang:
-        if t_date == now_wit.date() and now_wit.hour >= end_h: continue
-        
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
-        with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=True):
+        # Penentu expander: hanya tabel urutan pertama yang terbuka
+        is_expanded = (label == pilihan_rentang[0][2] and t_date == pilihan_rentang[0][3])
+        
+        with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
             data_tabel = []
             all_codes = []
             for m, negara in model_info.items():
