@@ -33,7 +33,7 @@ def degrees_to_direction(deg):
 
 # 3. Header Dashboard
 st.title("🛰️ Dashboard Operasional Cuaca Sentani")
-st.markdown("Analisis Komparasi Model Global Real-Time")
+st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
 # 4. Zona Waktu & Parameter Presisi
 tz_wit = pytz.timezone('Asia/Jayapura')
@@ -48,11 +48,11 @@ st.map(map_data, zoom=13) # Zoom lebih dalam karena koordinat presisi
 st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
-# 6. Konfigurasi Model (Ditambahkan BOM Australia)
+# 6. Konfigurasi Model
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
-    "ukmo_seamless": "Inggris", "bom_access": "Australia"
+    "ukmo_seamless": "Inggris"
 }
 
 params = {
@@ -122,8 +122,11 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 0.8em;'>
-        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO, BOM)
+        Copyright © 2026 Kedeng V | Data sourced from Open-Meteo (ECMWF, GFS, JMA, ICON, GEM, METEOFRANCE, UKMO)
+    </div>
     </div>
     """, 
     unsafe_allow_html=True
 )
+
+
