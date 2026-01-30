@@ -8,6 +8,19 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
+# --- PENGATURAN LOGO DI SIDEBAR (CENTERED) ---
+with st.sidebar:
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: center;">
+            <img src="https://raw.githubusercontent.com/kedeng-v/cuaca-sentani/main/bmkg.png" width="150">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    # Spasi sedikit agar tidak terlalu mepet dengan status koneksi
+    st.write("")
+    
 # TAMBAHAN LOGO DI SIDEBAR
 try:
     st.sidebar.image("bmkg.png", width=150)
@@ -158,3 +171,4 @@ st.markdown(
     """, 
     unsafe_allow_html=True
 )
+
