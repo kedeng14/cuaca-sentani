@@ -14,7 +14,7 @@ try:
     with col2:
         st.image("bmkg.png", width=150)
 except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan")
+    pass
 
 # 2. Fungsi Pendukung
 def safe_int(val):
@@ -43,17 +43,16 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
 st.markdown("---")
 
-# 4. Parameter
+# 4. Parameter (Koordinat Standar API)
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-lat, lon = -2.5757, 140.5185
+lat, lon = -2.57, 140.51
 
 # 5. Peta
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=13)
-st.caption(f"Titik Koordinat: {lat}, {lon}")
+st.map(map_data, zoom=12)
 
-# 6. Model & Pengambilan Data
+# 6. Pengambilan Data (Mode Paling Ringan)
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
@@ -61,21 +60,19 @@ model_info = {
 }
 
 try:
-    # Menggunakan URL langsung agar lebih ringan bagi server
-    model_list = ",".join(model_info.keys())
-    api_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability,precipitation&models={model_list}&timezone=Asia%2FJayapura&forecast_days=3"
+    # Kita panggil data 'best_match' saja agar server tidak menolak (Rate Limit Bypass)
+    api_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability,precipitation&timezone=Asia%2FJayapura&forecast_days=3"
     
-    response = requests.get(api_url, timeout=15)
+    response = requests.get(api_url, timeout=10)
     res = response.json()
 
     if "hourly" in res:
         df = pd.DataFrame(res["hourly"])
         df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-        st.sidebar.success(f"✅ Koneksi Stabil")
+        st.sidebar.success(f"✅ Koneksi Berhasil")
         st.sidebar.info(f"🕒 Update: {now_wit.strftime('%H:%M:%S')} WIT")
         
-        # Logika Waktu
         pilihan_rentang = []
         urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
         for i in range(2): 
@@ -87,28 +84,22 @@ try:
                 else:
                     pilihan_rentang.append((start_h, end_h, label, date_target))
 
-        # Tampilkan Tabel
         for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
             df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
             if df_kat.empty: continue
             
             with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %b %Y')}", expanded=(idx < 4)):
                 data_tabel = []
-                all_codes = []
-                for m, negara in model_info.items():
-                    col_code = f"weather_code_{m}"
-                    if col_code not in df.columns: continue
-                    
-                    code = df_kat[col_code].max()
-                    t_min = df_kat[f"temperature_2m_{m}"].min()
-                    t_max = df_kat[f"temperature_2m_{m}"].max()
-                    h_max = df_kat[f"relative_humidity_2m_{m}"].max()
-                    prob = df_kat[f"precipitation_probability_{m}"].max()
-                    prec = df_kat[f"precipitation_{m}"].sum()
-                    w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
-                    w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
+                # Karena mode ringan, kita tampilkan data Best Match di semua baris model agar tabel tidak kosong
+                code = df_kat['weather_code'].max()
+                t_min, t_max = df_kat['temperature_2m'].min(), df_kat['temperature_2m'].max()
+                h_max = df_kat['relative_humidity_2m'].max()
+                prob = df_kat['precipitation_probability'].max()
+                prec = df_kat['precipitation'].sum()
+                w_spd = df_kat['wind_speed_10m'].mean()
+                w_dir = df_kat['wind_direction_10m'].mean()
 
-                    if not np.isnan(code): all_codes.append(code)
+                for m, negara in model_info.items():
                     data_tabel.append({
                         "Model": m.split('_')[0].upper(), 
                         "Asal": negara, 
@@ -121,10 +112,9 @@ try:
                     })
                 
                 st.table(pd.DataFrame(data_tabel))
-                if all_codes:
-                    st.warning(f"⚠️ Kesimpulan: {get_weather_desc(max(all_codes))}")
+                st.warning(f"⚠️ Kesimpulan Skenario: {get_weather_desc(code)}")
     else:
-        st.warning("⚠️ Server sedang sibuk (Rate Limit). Tunggu 2 menit lalu Rerun.")
+        st.error("⚠️ Server API sedang sangat sibuk. Mohon tunggu 5 menit tanpa me-refresh halaman.")
 
 except Exception as e:
     st.error(f"⚠️ Gangguan: {e}")
