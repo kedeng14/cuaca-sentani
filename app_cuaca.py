@@ -29,21 +29,29 @@ def get_weather_desc(code):
     }
     return mapping.get(int(code), f"Kode {int(code)}")
 
-# 3. Sidebar dengan Logo BMKG
-try:
-    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2:
-        st.image("bmkg.png", width=150)
-except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan")
-
-# 4. Zona Waktu & Parameter
+# 3. Parameter & Zona Waktu
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
 
+# 4. Sidebar dengan Logo & Status Server
+try:
+    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
+    with col2:
+        st.image("bmkg.png", width=150)
+    
+    # Keterangan di bawah logo
+    st.sidebar.markdown("---")
+    st.sidebar.write(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
+    
+    # Status Server (Dideteksi dari percobaan koneksi nanti)
+    server_placeholder = st.sidebar.empty()
+except:
+    st.sidebar.warning("File bmkg.png tidak ditemukan")
+
+# 5. Header Dashboard
 st.title("🛰️ Dashboard ECMWF Ensemble (51 Members)")
-st.markdown(f"**Lokasi:** Stamet Sentani | **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
+st.markdown(f"**Titik Analisis:** Stamet Sentani, Jayapura")
 
 params = {
     "latitude": lat, "longitude": lon,
@@ -52,9 +60,16 @@ params = {
     "timezone": "Asia/Jayapura", "forecast_days": 3
 }
 
-# 5. Pengambilan Data
+# 6. Pengambilan Data & Visualisasi
 try:
     res = fetch_ensemble_data(lat, lon, params)
+    
+    # Indikator Server Aktif
+    if "hourly" in res:
+        server_placeholder.success("🟢 **Server:** AKTIF")
+    else:
+        server_placeholder.error("🔴 **Server:** GANGGUAN")
+
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
@@ -73,7 +88,7 @@ try:
 
     st.markdown("---")
 
-    # 6. Logika Urutan Waktu (H+5 Menit)
+    # 7. Logika Urutan Waktu (H+5 Menit)
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
 
@@ -86,7 +101,7 @@ try:
             else:
                 pilihan_rentang.append((start_h, end_h, label, date_target))
 
-    # 7. Tampilkan Tabel Operasional
+    # 8. Tampilkan Tabel Operasional
     for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
@@ -94,17 +109,16 @@ try:
         is_expanded = idx < 4
         with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
             
-            # Hitung Statistik Ensemble untuk Tabel
+            # Hitung Statistik Ensemble
             mean_temp = df_kat[temp_members].mean().mean()
-            # Hitung modus kondisi (paling banyak muncul di antara 51 member)
             kondisi_dominan_code = df_kat[code_members].mode(axis=1).iloc[0].mode()[0]
-            # Tingkat Kepercayaan: Persentase member yang setuju dengan kondisi dominan
             count_setuju = (df_kat[code_members] == kondisi_dominan_code).sum(axis=1).mean()
             confidence = (count_setuju / 51) * 100
-            
-            # Probabilitas Hujan (Member yang memprediksi hujan > 0.1mm)
             prob_hujan = (df_kat[prec_members] > 0.1).sum(axis=1).mean() / 51 * 100
-            max_prec = df_kat[prec_members].max().sum() # Skenario terburuk akumulasi
+            
+            # Nilai Maksimum (Worst Case)
+            worst_code = df_kat[code_members].max().max()
+            max_prec_val = df_kat[prec_members].max().sum()
 
             data_tabel = {
                 "Parameter": ["Kondisi Dominan", "Tingkat Kepercayaan (Confidence)", "Peluang Hujan", "Suhu Rata-rata", "Skenario Terburuk (Curah)"],
@@ -113,20 +127,22 @@ try:
                     f"🎯 {confidence:.0f}%",
                     f"💧 {prob_hujan:.0f}%",
                     f"🌡️ {mean_temp:.1f} °C",
-                    f"⚠️ {max_prec:.1f} mm"
+                    f"⚠️ {max_prec_val:.1f} mm"
                 ]
             }
             
             st.table(pd.DataFrame(data_tabel))
             
-            # Warning Skenario Terburuk
-            worst_code = df_kat[code_members].max().max()
-            if worst_code >= 61: # Jika ada simulasi hujan/badai
-                st.warning(f"⚠️ **PERINGATAN DINI:** Simulasi terburuk mendeteksi potensi {get_weather_desc(worst_code)}")
+            # --- PANEL STATUS TETAP TAMPIL (HIJAU/KUNING) ---
+            if max_prec_val >= 5.0 or worst_code >= 61: 
+                st.warning(f"⚠️ **PERINGATAN DINI:** Simulasi terburuk mendeteksi potensi {get_weather_desc(worst_code)} (Estimasi: {max_prec_val:.1f} mm)")
+            else:
+                st.success(f"✅ **STATUS:** Tidak ada potensi cuaca ekstrem terdeteksi. (Skenario Terburuk: {max_prec_val:.1f} mm)")
 
 except Exception as e:
-    st.error(f"⚠️ Gangguan Data: {e}")
+    server_placeholder.error("🔴 **Server:** DISCONNECT")
+    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
 
-# 8. Footer
+# 9. Footer
 st.markdown("---")
 st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Ensemble ECMWF 0.25° (51 Members)</div>", unsafe_allow_html=True)
