@@ -48,7 +48,7 @@ try:
     # --- BLOK DISCLAIMER OPERASIONAL ---
     st.sidebar.markdown("---")
     st.sidebar.warning("""
-    **📢 DISCLAIMER**
+    **📢 DISCLAIMER:**
     Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
     
     Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
@@ -152,3 +152,4 @@ except Exception as e:
 # 9. Footer
 st.markdown("---")
 st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Ensemble ECMWF 0.25° (51 Members)</div>", unsafe_allow_html=True)
+
