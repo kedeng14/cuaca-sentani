@@ -7,10 +7,10 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 
 # 1. Konfigurasi Halaman
-st.set_page_config(page_title="Grand Multi-Ensemble Sentani", layout="wide")
+st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 st_autorefresh(interval=60000, key="fokus_periode_update")
 
-# 2. Fungsi Fetch Data (Cache 1 jam)
+# 2. Fungsi Fetch Data & Helper
 @st.cache_data(ttl=3600)
 def fetch_grand_ensemble(lat, lon, params):
     url = "https://ensemble-api.open-meteo.com/v1/ensemble"
@@ -27,6 +27,12 @@ def get_weather_desc(code, rain_val=0):
         return mapping.get(int(code), f"Kode {int(code)}")
     return "🌧️ Hujan" if rain_val > 0.1 else "☁️ Mendung"
 
+def degrees_to_direction(deg):
+    if deg is None or np.isnan(deg): return "-"
+    directions = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']
+    idx = int((deg + 22.5) / 45) % 8
+    return directions[idx]
+
 # 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
@@ -38,22 +44,27 @@ try:
     st.sidebar.markdown("---")
     st.sidebar.write(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
     server_placeholder = st.sidebar.empty()
-    st.sidebar.info("**🔍 METODE ANALISIS:**\nMulti-Model Ensemble Consensus (5 Global Models)")
+    
+    st.sidebar.markdown("---")
+    st.sidebar.warning("**📢 DISCLAIMER**\nData ini luaran model (alat bantu). Analisis final tetap pada **Forecaster** (MJO, Streamline, Satelit).")
 except:
-    st.sidebar.warning("Logo BMKG tidak ditemukan")
+    st.sidebar.warning("Logo tidak ditemukan")
 
-# 4. Request API (5 Model Ensemble)
-models_list = [
-    "ecmwf_ifs025_ensemble", 
-    "ncep_gefs025", 
-    "ukmo_global_ensemble_20km", 
-    "icon_global_eps", 
-    "gem_global_ensemble"
-]
+# 4. Header & Peta
+st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
+
+# Peta Lokasi
+map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
+st.map(map_data, zoom=12)
+st.markdown("---")
+
+# 5. Request API (5 Model Ensemble)
+models_list = ["ecmwf_ifs025_ensemble", "ncep_gefs025", "ukmo_global_ensemble_20km", "icon_global_eps", "gem_global_ensemble"]
 
 params = {
     "latitude": lat, "longitude": lon,
-    "hourly": ["precipitation", "weather_code"],
+    "hourly": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code", "wind_speed_10m", "wind_direction_10m"],
     "models": models_list,
     "timezone": "Asia/Jayapura", "forecast_days": 3
 }
@@ -64,10 +75,7 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    st.title("🛰️ Grand Multi-Model Ensemble Dashboard")
-    st.markdown(f"**Lokasi:** Stamet Sentani | Konsensus 5 Model Global")
-
-    # 5. Logika Periode Waktu (H+5 Menit)
+    # 6. Logika Periode Waktu (H+5 Menit)
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
     for i in range(2): 
@@ -76,30 +84,35 @@ try:
             if dt == now_wit.date() and now_wit.hour >= e and now_wit.minute >= 5: continue
             pilihan_rentang.append((s, e, lbl, dt))
 
-    # 6. Tampilkan Tabel
+    # 7. Tampilkan Tabel
     for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
         with st.expander(f"📅 {label} | {t_date.strftime('%d %b %Y')}", expanded=(idx<4)):
-            
             results = []
             all_max_prec = []
             
             for m in models_list:
-                # Cari kolom untuk model ini
-                m_prec_cols = [c for c in df.columns if m in c and "precipitation" in c]
-                m_code_cols = [c for c in df.columns if m in c and "weather_code" in c]
+                m_prec = [c for c in df.columns if m in c and "precipitation" in c]
+                m_temp = [c for c in df.columns if m in c and "temperature_2m" in c]
+                m_rh   = [c for c in df.columns if m in c and "relative_humidity_2m" in c]
+                m_ws   = [c for c in df.columns if m in c and "wind_speed_10m" in c]
+                m_wd   = [c for c in df.columns if m in c and "wind_direction_10m" in c]
+                m_code = [c for c in df.columns if m in c and "weather_code" in c]
                 
-                # Hitung Probabilitas (Threshold 0.5mm agar tidak overestimate)
-                n_members = len(m_prec_cols)
-                prob = (df_kat[m_prec_cols] > 0.5).sum(axis=1).mean() / n_members * 100
-                max_p = df_kat[m_prec_cols].max().sum()
+                n_members = len(m_prec)
+                prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
+                max_p = df_kat[m_prec].max().sum()
                 all_max_prec.append(max_p)
                 
-                # Ambil Kode Cuaca (Jika ada)
-                if m_code_cols:
-                    code_val = df_kat[m_code_cols].mode(axis=1).iloc[0].mode()[0]
+                t_min, t_max = df_kat[m_temp].min().min(), df_kat[m_temp].max().max()
+                rh_min, rh_max = df_kat[m_rh].min().min(), df_kat[m_rh].max().max()
+                ws_mean = df_kat[m_ws].mean().mean()
+                wd_mean = df_kat[m_wd].mean().mean()
+
+                if m_code:
+                    code_val = df_kat[m_code].mode(axis=1).iloc[0].mode()[0]
                     desc = get_weather_desc(code_val)
                 else:
                     desc = get_weather_desc(None, max_p)
@@ -107,21 +120,29 @@ try:
                 results.append({
                     "Model": m.split('_')[0].upper(),
                     "Kondisi": desc,
+                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
+                    "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
+                    "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
                     "Worst Case (mm)": round(max_p, 1)
                 })
             
             st.table(pd.DataFrame(results))
             
-            # --- ANALISIS KONSENSUS ---
-            avg_max = sum(all_max_prec) / len(all_max_prec)
-            if max(all_max_prec) >= 5.0:
-                st.warning(f"⚠️ **WARNING:** Potensi hujan signifikan terdeteksi. Skenario terburuk rata-rata model: {avg_max:.1f} mm.")
+            total_max = max(all_max_prec)
+            if total_max >= 5.0:
+                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Skenario terburuk: {total_max:.1f} mm.")
             else:
-                st.success(f"✅ **AMAN:** Konsensus model menunjukkan kondisi stabil.")
+                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Max: {total_max:.1f} mm)")
 
 except Exception as e:
-    st.error(f"Gagal memproses Grand Ensemble. Error: {e}")
+    st.error(f"⚠️ Terjadi gangguan data: {e}")
 
-st.sidebar.markdown("---")
-st.sidebar.warning("**📢 DISCLAIMER**\nOutput model ini hanyalah panduan. Analisis streamline, MJO, dan data radar tetap menjadi prioritas utama forecaster.")
+# 8. Copyright & Footer
+st.markdown("---")
+st.markdown(f"""
+    <div style='text-align: center; color: #888; font-size: 0.85em;'>
+        <p>© 2026 <b>Kedeng V</b> | Stasiun Meteorologi Sentani</p>
+        <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
+    </div>
+""", unsafe_allow_html=True)
