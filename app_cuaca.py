@@ -9,10 +9,10 @@ from streamlit_autorefresh import st_autorefresh
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani ENS", layout="wide")
 
-# --- AUTO REFRESH SETIAP 1 MENIT (Hanya untuk update jam/tabel H+5) ---
+# --- AUTO REFRESH SETIAP 1 MENIT ---
 st_autorefresh(interval=60000, key="fokus_periode_update")
 
-# 2. Fungsi Pendukung & CACHE DATA (Tarik data setiap 1 jam agar aman)
+# 2. Fungsi Pendukung & CACHE DATA
 @st.cache_data(ttl=3600)
 def fetch_ensemble_data(lat, lon, params):
     url = "https://ensemble-api.open-meteo.com/v1/ensemble"
@@ -34,18 +34,28 @@ tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
 
-# 4. Sidebar dengan Logo & Status Server
+# 4. Sidebar dengan Logo, Status, dan Disclaimer
 try:
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
     with col2:
         st.image("bmkg.png", width=150)
     
-    # Keterangan di bawah logo
     st.sidebar.markdown("---")
     st.sidebar.write(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
-    # Status Server (Dideteksi dari percobaan koneksi nanti)
     server_placeholder = st.sidebar.empty()
+
+    # --- BLOK DISCLAIMER OPERASIONAL ---
+    st.sidebar.markdown("---")
+    st.sidebar.warning("""
+    **📢 DISCLAIMER**
+    Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+    
+    Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
+    * Streamline & Divergensi
+    * Indeks Global (MJO, IOD, ENSO)
+    * Kondisi Lokal & Satelit
+    """)
 except:
     st.sidebar.warning("File bmkg.png tidak ditemukan")
 
@@ -60,11 +70,10 @@ params = {
     "timezone": "Asia/Jayapura", "forecast_days": 3
 }
 
-# 6. Pengambilan Data & Visualisasi
+# 6. Pengambilan Data
 try:
     res = fetch_ensemble_data(lat, lon, params)
     
-    # Indikator Server Aktif
     if "hourly" in res:
         server_placeholder.success("🟢 **Server:** AKTIF")
     else:
@@ -109,19 +118,17 @@ try:
         is_expanded = idx < 4
         with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
             
-            # Hitung Statistik Ensemble
             mean_temp = df_kat[temp_members].mean().mean()
             kondisi_dominan_code = df_kat[code_members].mode(axis=1).iloc[0].mode()[0]
             count_setuju = (df_kat[code_members] == kondisi_dominan_code).sum(axis=1).mean()
             confidence = (count_setuju / 51) * 100
             prob_hujan = (df_kat[prec_members] > 0.1).sum(axis=1).mean() / 51 * 100
             
-            # Nilai Maksimum (Worst Case)
             worst_code = df_kat[code_members].max().max()
             max_prec_val = df_kat[prec_members].max().sum()
 
             data_tabel = {
-                "Parameter": ["Kondisi Dominan", "Tingkat Kepercayaan (Confidence)", "Peluang Hujan", "Suhu Rata-rata", "Skenario Terburuk (Curah)"],
+                "Parameter": ["Kondisi Dominan", "Confidence (Kepercayaan)", "Peluang Hujan", "Suhu Rata-rata", "Skenario Terburuk (Curah)"],
                 "Nilai Analisis": [
                     get_weather_desc(kondisi_dominan_code),
                     f"🎯 {confidence:.0f}%",
@@ -133,7 +140,6 @@ try:
             
             st.table(pd.DataFrame(data_tabel))
             
-            # --- PANEL STATUS TETAP TAMPIL (HIJAU/KUNING) ---
             if max_prec_val >= 5.0 or worst_code >= 61: 
                 st.warning(f"⚠️ **PERINGATAN DINI:** Simulasi terburuk mendeteksi potensi {get_weather_desc(worst_code)} (Estimasi: {max_prec_val:.1f} mm)")
             else:
