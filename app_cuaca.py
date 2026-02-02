@@ -61,7 +61,7 @@ try:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔗 Referensi Forecaster")
     st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
-    st.sidebar.link_button("🛰️ Website BMKG Pusat", "https://www.bmkg.go.id/#cuaca-iklim-5")
+    st.sidebar.link_button("🛰️ Stremaline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
 
 except:
     st.sidebar.warning("Logo tidak ditemukan")
@@ -174,3 +174,4 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
