@@ -45,8 +45,17 @@ try:
     st.sidebar.write(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
     server_placeholder = st.sidebar.empty()
     
+    # --- BLOK DISCLAIMER OPERASIONAL ---
     st.sidebar.markdown("---")
-    st.sidebar.warning("**📢 DISCLAIMER**\nData ini luaran model (alat bantu). Analisis final tetap pada **Forecaster** (MJO, Streamline, Satelit).")
+    st.sidebar.warning("""
+    **📢 DISCLAIMER:**
+    Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+    
+    Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
+    * Streamline & Divergensi
+    * Indeks Global (MJO, IOD, ENSO)
+    * Kondisi Lokal & Satelit
+    """)
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
@@ -136,16 +145,16 @@ try:
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
-                    "Worst Case (mm)": round(max_p, 1)
+                    "Skenario Ekstrem (mm)": round(max_p, 1)
                 })
             
             st.table(pd.DataFrame(results))
             
             total_max = max(all_max_prec)
             if total_max >= 5.0:
-                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Skenario terburuk: {total_max:.1f} mm.")
+                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Skenario ekstrem: {total_max:.1f} mm.")
             else:
-                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Max: {total_max:.1f} mm)")
+                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Ekstrem Max: {total_max:.1f} mm)")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
