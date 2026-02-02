@@ -56,6 +56,13 @@ try:
     * Indeks Global (MJO, IOD, ENSO)
     * Kondisi Lokal & Satelit
     """)
+
+    # --- TAMBAHAN LINK REFERENSI ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔗 Referensi Forecaster")
+    st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+    st.sidebar.link_button("🛰️ Website BMKG Pusat", "https://www.bmkg.go.id/#cuaca-iklim-5")
+
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
