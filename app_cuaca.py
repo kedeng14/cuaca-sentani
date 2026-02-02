@@ -59,8 +59,15 @@ map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=12)
 st.markdown("---")
 
-# 5. Request API (5 Model Ensemble)
-models_list = ["ecmwf_ifs025_ensemble", "ncep_gefs025", "ukmo_global_ensemble_20km", "icon_global_eps", "gem_global_ensemble"]
+# 5. Konfigurasi 5 Model Ensemble & Negara
+model_info = {
+    "ecmwf_ifs025_ensemble": "Uni Eropa",
+    "ncep_gefs025": "Amerika Serikat",
+    "ukmo_global_ensemble_20km": "Inggris Raya",
+    "icon_global_eps": "Jerman",
+    "gem_global_ensemble": "Kanada"
+}
+models_list = list(model_info.keys())
 
 params = {
     "latitude": lat, "longitude": lon,
@@ -78,18 +85,22 @@ try:
     # 6. Logika Periode Waktu (H+5 Menit)
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
+    
     for i in range(2): 
         dt = (now_wit + timedelta(days=i)).date()
         for s, e, lbl in urutan_waktu:
-            if dt == now_wit.date() and now_wit.hour >= e and now_wit.minute >= 5: continue
-            pilihan_rentang.append((s, e, lbl, dt))
+            if dt == now_wit.date():
+                if now_wit.hour < e or (now_wit.hour == e and now_wit.minute < 5):
+                    pilihan_rentang.append((s, e, lbl, dt))
+            else:
+                pilihan_rentang.append((s, e, lbl, dt))
 
     # 7. Tampilkan Tabel
     for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
-        with st.expander(f"📅 {label} | {t_date.strftime('%d %b %Y')}", expanded=(idx<4)):
+        with st.expander(f"📅 {label} ({start_h:02d}:00-{end_h:02d}:00) | {t_date.strftime('%d %b %Y')}", expanded=(idx<4)):
             results = []
             all_max_prec = []
             
@@ -119,6 +130,7 @@ try:
                 
                 results.append({
                     "Model": m.split('_')[0].upper(),
+                    "Negara": model_info[m],
                     "Kondisi": desc,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
