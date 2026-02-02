@@ -17,6 +17,18 @@ try:
 except:
     st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
 
+# --- BLOK DISCLAIMER OPERASIONAL ---
+st.sidebar.markdown("---")
+st.sidebar.warning("""
+**📢 DISCLAIMER:**
+Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+    
+Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
+* Streamline & Divergensi
+* Indeks Global (MJO, IOD, ENSO)
+* Kondisi Lokal & Satelit
+""")
+
 # 2. Fungsi Pendukung
 def safe_int(val):
     try:
