@@ -21,7 +21,7 @@ except:
 st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
-Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
     
 Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
 * Streamline & Divergensi
