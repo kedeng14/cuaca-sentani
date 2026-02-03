@@ -17,24 +17,25 @@ st.markdown("""
                  padding-left: 5rem;
                  padding-right: 5rem;
              }
-            /* Style untuk bingkai biru Update Terakhir sesuai gambar */
+            /* Style Update Terakhir yang sudah diperkecil hurufnya */
             .update-box {
                 background-color: #1e3a5f;
-                border-radius: 10px;
-                padding: 15px;
-                border-left: 5px solid #3b82f6;
+                border-radius: 8px;
+                padding: 10px;
+                border-left: 4px solid #3b82f6;
                 color: white;
                 margin-bottom: 10px;
             }
             .update-title {
                 font-weight: bold;
                 color: #60a5fa;
-                font-size: 1.1em;
-                margin-bottom: 5px;
+                font-size: 0.85em; /* Ukuran diperkecil */
+                margin-bottom: 2px;
             }
             .update-time {
-                font-size: 1.3em;
-                color: #93c5fd;
+                font-size: 1.0em; /* Ukuran diperkecil */
+                font-weight: bold;
+                color: #ffffff;
             }
     </style>
     """, unsafe_allow_html=True)
@@ -75,19 +76,17 @@ lat, lon = -2.5756744335142865, 140.5185071099937
 try:
     # LOGO
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2: st.image("bmkg.png", width=120)
+    with col2: st.image("bmkg.png", width=100) # Ukuran logo juga dijaga tetap kecil
     st.sidebar.markdown("---")
-    
-    # --- URUTAN SIDEBAR SESUAI PERMINTAAN ---
     
     # 1. STATUS KONEKSI
     server_placeholder = st.sidebar.empty()
     server_placeholder.success("🟢 **Server:** AKTIF")
     
-    # 2. UPDATE TERAKHIR (DENGAN BINGKAI BIRU SEPERTI GAMBAR)
+    # 2. UPDATE TERAKHIR (UKURAN HURUF LEBIH KECIL)
     st.sidebar.markdown(f"""
         <div class="update-box">
-            <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
+            <div class="update-title">🕒 Update: {now_wit.strftime('%d %b %Y')}</div>
             <div class="update-time">{now_wit.strftime('%H:%M:%S')} WIT</div>
         </div>
     """, unsafe_allow_html=True)
@@ -95,7 +94,7 @@ try:
     # 3. REFERENSI FORECASTER
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔗 Referensi Forecaster")
-    st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+    st.sidebar.link_button("🌐 MJO, Gel. Ekuator (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
     st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
     st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
@@ -103,10 +102,10 @@ try:
     st.sidebar.markdown("---")
     st.sidebar.warning("""
     **📢 DISCLAIMER:**
-    Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+    Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
     
     Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
-    * Streamline & Divergensi
+    * Streamline & Isobar
     * Indeks Global (MJO, IOD, ENSO)
     * Kondisi Lokal & Satelit
     """)
