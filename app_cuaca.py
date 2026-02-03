@@ -39,7 +39,8 @@ def degrees_to_direction(deg):
 # 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-lat, lon = -2.575674, 140.518507
+# Menggunakan koordinat presisi sesuai gambar Bapak
+lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
@@ -48,7 +49,6 @@ try:
     st.sidebar.write(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
     server_placeholder = st.sidebar.empty()
     
-    # --- BLOK DISCLAIMER OPERASIONAL ---
     st.sidebar.markdown("---")
     st.sidebar.warning("""
     **📢 DISCLAIMER:**
@@ -60,24 +60,24 @@ try:
     * Kondisi Lokal & Satelit
     """)
 
-    # --- TAMBAHAN LINK REFERENSI (Sesuai Permintaan Bapak) ---
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔗 Referensi Forecaster")
     st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
     st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
-    # Link Animasi Satelit ditaruh di bawah Streamline
     st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
-# 4. Header & Peta
+# 4. Header & Peta (Disesuaikan agar mirip gambar Bapak)
 st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
-# Peta Lokasi
+st.subheader("📍 Lokasi Titik Analisis")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
-st.map(map_data, zoom=12)
+st.map(map_data, zoom=13)
+# Menampilkan koordinat presisi di bawah peta
+st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
 # 5. Konfigurasi 5 Model Ensemble
@@ -136,7 +136,6 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
-                # LOGIKA ANGGOTA TERBASAH (REALISTIS)
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
