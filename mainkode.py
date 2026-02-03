@@ -29,7 +29,7 @@ st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{no
 # 4. Referensi Forecaster
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔗 Referensi Forecaster")
-st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+st.sidebar.link_button("🌐 Monitoring MJO, Gel. Ekuatorial (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
 st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
 st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
@@ -40,7 +40,7 @@ st.sidebar.warning("""
 Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
     
 Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
-* Streamline & Divergensi
+* Streamline & Isobar
 * Indeks Global (MJO, IOD, ENSO)
 * Kondisi Lokal & Satelit
 """)
