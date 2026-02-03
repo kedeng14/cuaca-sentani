@@ -6,10 +6,9 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
 
-# 1. Konfigurasi Halaman & CSS untuk Posisi Judul yang Ideal
+# 1. Konfigurasi Halaman & CSS
 st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 
-# CSS untuk mengatur jarak atas agar proporsional (tidak terlalu mepet, tidak terlalu low)
 st.markdown("""
     <style>
            .block-container {
@@ -52,7 +51,6 @@ def degrees_to_direction(deg):
 # 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-# Koordinat Presisi Bandara Sentani
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
@@ -86,7 +84,7 @@ except:
 st.markdown("<h1 style='text-align: center;'>🛰️ Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
-st.subheader("📍 Lokasi Titik Analisis")
+st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
@@ -148,7 +146,7 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
-                # LOGIKA REALISTIS (ANGGOTA TERBASAH)
+                # LOGIKA ANGGOTA TERBASAH
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
@@ -172,16 +170,16 @@ try:
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
-                    "Curah Hujan (mm)": round(max_p, 1)
+                    "Curah Hujan (mm)": round(max_p, 1) # NAMA KOLOM DIGANTI
                 })
             
             st.table(pd.DataFrame(results))
             
             total_max = max(all_max_prec)
             if total_max >= 5.0:
-                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Skenario ekstrem: {total_max:.1f} mm.")
+                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Estimasi maks: {total_max:.1f} mm.")
             else:
-                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Ekstrem Max: {total_max:.1f} mm)")
+                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Maks: {total_max:.1f} mm)")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
@@ -194,6 +192,3 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
-
-
-
