@@ -83,7 +83,7 @@ except:
     st.sidebar.warning("Logo tidak ditemukan")
 
 # 4. Header Utama
-st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>🛰️ Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
 st.subheader("📍 Lokasi Titik Analisis")
@@ -194,4 +194,5 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
 
