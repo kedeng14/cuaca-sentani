@@ -130,7 +130,10 @@ try:
                 
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
-                max_p = df_kat[m_prec].max().sum()
+                
+                # --- PERBAIKAN LOGIKA SKENARIO EKSTREM (Mencari Anggota Terbasah) ---
+                total_hujan_per_member = df_kat[m_prec].sum() 
+                max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
                 
                 t_min, t_max = df_kat[m_temp].min().min(), df_kat[m_temp].max().max()
@@ -174,5 +177,3 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
-
-
