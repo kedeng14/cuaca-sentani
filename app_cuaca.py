@@ -73,6 +73,12 @@ st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble C
 # Peta Lokasi
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=12)
+
+# --- TAMBAHAN SATELIT ANIMASI ---
+st.markdown("---")
+st.subheader("🛰️ Pantauan Satelit Real-Time (Animasi)")
+sat_url = "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif"
+st.image(sat_url, caption="Animasi Satelit Himawari-9 Enhanced Infrared (Region 5)", use_container_width=True)
 st.markdown("---")
 
 # 5. Konfigurasi 5 Model Ensemble & Negara
@@ -131,7 +137,7 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
-                # --- PERBAIKAN LOGIKA SKENARIO EKSTREM (Mencari Anggota Terbasah) ---
+                # --- LOGIKA REALISTIS (ANGGOTA TERBASAH) ---
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
