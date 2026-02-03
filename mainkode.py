@@ -8,16 +8,32 @@ import pytz
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Ops Cuaca Sentani", layout="wide")
 
-# TAMBAHAN LOGO DI SIDEBAR (Sesuai permintaan Anda)
-try:
-    # Menggunakan kolom di sidebar agar posisi logo lebih ke tengah
-    col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2:
-        st.image("bmkg.png", width=150)
-except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan di GitHub")
+# --- SIDEBAR (URUTAN BARU) ---
 
-# --- BLOK DISCLAIMER OPERASIONAL ---
+# 1. Logo (Diperkecil menjadi width=100)
+try:
+    col1, col2, col3 = st.sidebar.columns([1, 2, 1])
+    with col2:
+        st.image("bmkg.png", width=100)
+except:
+    st.sidebar.warning("File bmkg.png tidak ditemukan")
+
+# Zona Waktu untuk Info Update
+tz_wit = pytz.timezone('Asia/Jayapura')
+now_wit = datetime.now(tz_wit)
+
+# 2. Status Koneksi & 3. Update Terakhir
+st.sidebar.success(f"✅ Koneksi Server Stabil")
+st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
+
+# 4. Referensi Forecaster
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔗 Referensi Forecaster")
+st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
+st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
+
+# 5. Disclaimer (Paling Bawah)
 st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
@@ -29,12 +45,7 @@ Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan para
 * Kondisi Lokal & Satelit
 """)
 
-# --- TAMBAHAN REFERENSI FORECASTER (Sesuai Perintah) ---
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔗 Referensi Forecaster")
-st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
-st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
-st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
+# --- AKHIR SIDEBAR ---
 
 # 2. Fungsi Pendukung
 def safe_int(val):
@@ -63,9 +74,7 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
 st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
-# 4. Zona Waktu & Parameter Presisi
-tz_wit = pytz.timezone('Asia/Jayapura')
-now_wit = datetime.now(tz_wit)
+# 4. Parameter Presisi
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 # 5. Bagian Peta Interaktif
@@ -117,9 +126,6 @@ try:
         st.area_chart(df_prob_chart.set_index('time').head(48))
     
     st.markdown("---")
-
-    st.sidebar.success(f"✅ Koneksi Server Stabil")
-    st.sidebar.info(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
     # LOGIKA URUTAN WAKTU
     pilihan_rentang = []
@@ -144,7 +150,6 @@ try:
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
-        # Penentu expander: 4 tabel pertama (indeks 0, 1, 2, 3) akan terbuka otomatis
         is_expanded = idx < 4
         
         with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
