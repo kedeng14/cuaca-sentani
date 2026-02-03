@@ -19,27 +19,13 @@ def fetch_grand_ensemble(lat, lon, params):
 
 def get_weather_desc(code, rain_val=0):
     if code is not None and not np.isnan(code):
-        # Kamus Kode Cuaca Lengkap (WMO Standard)
         mapping = {
-            0: "☀️ Cerah", 
-            1: "🌤️ Cerah Berawan", 
-            2: "⛅ Berawan", 
-            3: "☁️ Mendung",
-            45: "🌫️ Kabut", 
-            48: "🌫️ Kabut Berembun",
-            51: "🌦️ Gerimis Ringan", 
-            53: "🌦️ Gerimis Sedang", 
-            55: "🌧️ Gerimis Padat",
-            61: "🌧️ Hujan Ringan", 
-            63: "🌧️ Hujan Sedang", 
-            65: "🌧️ Hujan Lebat", 
-            71: "🌨️ Salju Ringan",
-            80: "🌦️ Hujan Shower Ringan",
-            81: "🌧️ Hujan Shower Sedang",
-            82: "⛈️ Hujan Shower Sangat Lebat",
-            95: "⛈️ Badai Petir",
-            96: "⛈️ Badai Petir + Es",
-            99: "⛈️ Badai Petir Berat"
+            0: "☀️ Cerah", 1: "🌤️ Cerah Berawan", 2: "⛅ Berawan", 3: "☁️ Mendung",
+            45: "🌫️ Kabut", 48: "🌫️ Kabut Berembun",
+            51: "🌦️ Gerimis Ringan", 53: "🌦️ Gerimis Sedang", 55: "🌧️ Gerimis Padat",
+            61: "🌧️ Hujan Ringan", 63: "🌧️ Hujan Sedang", 65: "🌧️ Hujan Lebat",
+            80: "🌦️ Hujan Lokal Rgn", 81: "🌧️ Hujan Lokal Sdng", 82: "⛈️ Hujan Lokal Lbt",
+            95: "⛈️ Badai Petir"
         }
         return mapping.get(int(code), f"Kode {int(code)}")
     return "🌧️ Hujan" if rain_val > 0.1 else "☁️ Mendung"
@@ -74,11 +60,13 @@ try:
     * Kondisi Lokal & Satelit
     """)
 
-    # --- TAMBAHAN LINK REFERENSI ---
+    # --- TAMBAHAN LINK REFERENSI (Sesuai Permintaan Bapak) ---
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔗 Referensi Forecaster")
     st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
     st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
+    # Link Animasi Satelit ditaruh di bawah Streamline
+    st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
 except:
     st.sidebar.warning("Logo tidak ditemukan")
@@ -90,15 +78,9 @@ st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble C
 # Peta Lokasi
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=12)
-
-# --- TAMBAHAN SATELIT ANIMASI ---
-st.markdown("---")
-st.subheader("🛰️ Pantauan Satelit Real-Time (Animasi)")
-sat_url = "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif"
-st.image(sat_url, caption="Animasi Satelit Himawari-9 Enhanced Infrared (Region 5)", use_container_width=True)
 st.markdown("---")
 
-# 5. Konfigurasi 5 Model Ensemble & Negara
+# 5. Konfigurasi 5 Model Ensemble
 model_info = {
     "ecmwf_ifs025_ensemble": "Uni Eropa",
     "ncep_gefs025": "Amerika Serikat",
@@ -121,7 +103,7 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # 6. Logika Periode Waktu (H+5 Menit)
+    # 6. Logika Periode Waktu
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
     
@@ -154,7 +136,7 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
-                # --- LOGIKA REALISTIS (ANGGOTA TERBASAH) ---
+                # LOGIKA ANGGOTA TERBASAH (REALISTIS)
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
@@ -165,7 +147,6 @@ try:
                 wd_mean = df_kat[m_wd].mean().mean()
 
                 if m_code:
-                    # Mengambil kode yang paling sering muncul (modus) di blok waktu tsb
                     code_val = df_kat[m_code].mode(axis=1).iloc[0].mode()[0]
                     desc = get_weather_desc(code_val)
                 else:
