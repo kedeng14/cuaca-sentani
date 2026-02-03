@@ -19,10 +19,27 @@ def fetch_grand_ensemble(lat, lon, params):
 
 def get_weather_desc(code, rain_val=0):
     if code is not None and not np.isnan(code):
+        # Kamus Kode Cuaca Lengkap (WMO Standard)
         mapping = {
-            0: "☀️ Cerah", 1: "🌤️ Cerah Berawan", 2: "⛅ Berawan", 3: "☁️ Mendung",
-            45: "🌫️ Kabut", 51: "🌦️ Gerimis Rgn", 61: "🌧️ Hujan Ringan", 
-            63: "🌧️ Hujan Sedang", 65: "🌧️ Hujan Lebat", 95: "⛈️ Badai Petir"
+            0: "☀️ Cerah", 
+            1: "🌤️ Cerah Berawan", 
+            2: "⛅ Berawan", 
+            3: "☁️ Mendung",
+            45: "🌫️ Kabut", 
+            48: "🌫️ Kabut Berembun",
+            51: "🌦️ Gerimis Ringan", 
+            53: "🌦️ Gerimis Sedang", 
+            55: "🌧️ Gerimis Padat",
+            61: "🌧️ Hujan Ringan", 
+            63: "🌧️ Hujan Sedang", 
+            65: "🌧️ Hujan Lebat", 
+            71: "🌨️ Salju Ringan",
+            80: "🌦️ Hujan Shower Ringan",
+            81: "🌧️ Hujan Shower Sedang",
+            82: "⛈️ Hujan Shower Sangat Lebat",
+            95: "⛈️ Badai Petir",
+            96: "⛈️ Badai Petir + Es",
+            99: "⛈️ Badai Petir Berat"
         }
         return mapping.get(int(code), f"Kode {int(code)}")
     return "🌧️ Hujan" if rain_val > 0.1 else "☁️ Mendung"
@@ -148,6 +165,7 @@ try:
                 wd_mean = df_kat[m_wd].mean().mean()
 
                 if m_code:
+                    # Mengambil kode yang paling sering muncul (modus) di blok waktu tsb
                     code_val = df_kat[m_code].mode(axis=1).iloc[0].mode()[0]
                     desc = get_weather_desc(code_val)
                 else:
