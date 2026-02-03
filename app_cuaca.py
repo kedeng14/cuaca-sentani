@@ -172,7 +172,7 @@ try:
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
-                    "Skenario Ekstrem (mm)": round(max_p, 1)
+                    "Curah Hujan (mm)": round(max_p, 1)
                 })
             
             st.table(pd.DataFrame(results))
@@ -194,5 +194,6 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
 
 
