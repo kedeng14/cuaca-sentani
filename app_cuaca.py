@@ -6,8 +6,21 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
 
-# 1. Konfigurasi Halaman
+# 1. Konfigurasi Halaman & CSS untuk Menarik Judul ke Atas
 st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
+
+# CSS untuk menghilangkan padding atas
+st.markdown("""
+    <style>
+           .block-container {
+                padding-top: 1rem;
+                padding-bottom: 0rem;
+                padding-left: 5rem;
+                padding-right: 5rem;
+            }
+    </style>
+    """, unsafe_allow_html=True)
+
 st_autorefresh(interval=60000, key="fokus_periode_update")
 
 # 2. Fungsi Fetch Data & Helper
@@ -39,7 +52,6 @@ def degrees_to_direction(deg):
 # 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
-# Menggunakan koordinat presisi sesuai gambar Bapak
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
@@ -69,14 +81,13 @@ try:
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
-# 4. Header & Peta (Disesuaikan agar mirip gambar Bapak)
-st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
+# 4. Header Utama (Sekarang Lebih Tinggi)
+st.markdown("<h1 style='text-align: center; margin-top: -50px;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #555; margin-bottom: 20px;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
-st.subheader("📍 Lokasi Titik Analisis")
+st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=13)
-# Menampilkan koordinat presisi di bawah peta
 st.caption(f"Titik Koordinat: {lat}, {lon}")
 st.markdown("---")
 
@@ -136,6 +147,7 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
+                # LOGIKA REALISTIS (ANGGOTA TERBASAH)
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
