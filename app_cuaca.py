@@ -6,14 +6,14 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
 
-# 1. Konfigurasi Halaman & CSS untuk Menarik Judul ke Atas
+# 1. Konfigurasi Halaman & CSS untuk Posisi Judul yang Ideal
 st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 
-# CSS untuk menghilangkan padding atas
+# CSS untuk mengatur jarak atas agar proporsional (tidak terlalu mepet, tidak terlalu low)
 st.markdown("""
     <style>
            .block-container {
-                padding-top: 1rem;
+                padding-top: 3.5rem; 
                 padding-bottom: 0rem;
                 padding-left: 5rem;
                 padding-right: 5rem;
@@ -52,6 +52,7 @@ def degrees_to_direction(deg):
 # 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
+# Koordinat Presisi Bandara Sentani
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
@@ -81,9 +82,9 @@ try:
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
-# 4. Header Utama (Sekarang Lebih Tinggi)
-st.markdown("<h1 style='text-align: center; margin-top: -50px;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align: center; color: #555; margin-bottom: 20px;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
+# 4. Header Utama
+st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
 st.subheader("📍 Lokasi Titik Analisis Presisi")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
