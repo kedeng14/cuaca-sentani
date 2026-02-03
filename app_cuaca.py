@@ -86,7 +86,7 @@ try:
     # 2. UPDATE TERAKHIR (UKURAN HURUF LEBIH KECIL)
     st.sidebar.markdown(f"""
         <div class="update-box">
-            <div class="update-title">🕒 Update: {now_wit.strftime('%d %b %Y')}</div>
+            <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
             <div class="update-time">{now_wit.strftime('%H:%M:%S')} WIT</div>
         </div>
     """, unsafe_allow_html=True)
@@ -117,7 +117,7 @@ except:
 st.markdown("<h1 style='text-align: center;'>🛰️ Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
-st.subheader("📍 Lokasi Titik Analisis Presisi")
+st.subheader("📍 Lokasi Titik Analisis")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
@@ -223,3 +223,4 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
