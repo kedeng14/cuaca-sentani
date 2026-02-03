@@ -11,11 +11,30 @@ st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 
 st.markdown("""
     <style>
-           .block-container {
-                padding-top: 2.5rem; 
-                padding-bottom: 0rem;
-                padding-left: 5rem;
-                padding-right: 5rem;
+            .block-container {
+                 padding-top: 2.5rem; 
+                 padding-bottom: 0rem;
+                 padding-left: 5rem;
+                 padding-right: 5rem;
+             }
+            /* Style untuk bingkai biru Update Terakhir sesuai gambar */
+            .update-box {
+                background-color: #1e3a5f;
+                border-radius: 10px;
+                padding: 15px;
+                border-left: 5px solid #3b82f6;
+                color: white;
+                margin-bottom: 10px;
+            }
+            .update-title {
+                font-weight: bold;
+                color: #60a5fa;
+                font-size: 1.1em;
+                margin-bottom: 5px;
+            }
+            .update-time {
+                font-size: 1.3em;
+                color: #93c5fd;
             }
     </style>
     """, unsafe_allow_html=True)
@@ -54,12 +73,33 @@ now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
+    # LOGO
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
     with col2: st.image("bmkg.png", width=120)
     st.sidebar.markdown("---")
-    st.sidebar.write(f"🕒 **Update:** {now_wit.strftime('%H:%M:%S')} WIT")
-    server_placeholder = st.sidebar.empty()
     
+    # --- URUTAN SIDEBAR SESUAI PERMINTAAN ---
+    
+    # 1. STATUS KONEKSI
+    server_placeholder = st.sidebar.empty()
+    server_placeholder.success("🟢 **Server:** AKTIF")
+    
+    # 2. UPDATE TERAKHIR (DENGAN BINGKAI BIRU SEPERTI GAMBAR)
+    st.sidebar.markdown(f"""
+        <div class="update-box">
+            <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
+            <div class="update-time">{now_wit.strftime('%H:%M:%S')} WIT</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 3. REFERENSI FORECASTER
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔗 Referensi Forecaster")
+    st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+    st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
+    st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
+
+    # 4. DISCLAIMER
     st.sidebar.markdown("---")
     st.sidebar.warning("""
     **📢 DISCLAIMER:**
@@ -70,12 +110,6 @@ try:
     * Indeks Global (MJO, IOD, ENSO)
     * Kondisi Lokal & Satelit
     """)
-
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔗 Referensi Forecaster")
-    st.sidebar.link_button("🌐 Monitoring MJO (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
-    st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
-    st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
 except:
     st.sidebar.warning("Logo tidak ditemukan")
@@ -109,7 +143,6 @@ params = {
 
 try:
     res = fetch_grand_ensemble(lat, lon, params)
-    server_placeholder.success("🟢 **Server:** AKTIF")
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
@@ -146,7 +179,6 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
-                # LOGIKA ANGGOTA TERBASAH
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
@@ -170,7 +202,7 @@ try:
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
-                    "Curah Hujan (mm)": round(max_p, 1) # NAMA KOLOM DIGANTI
+                    "Curah Hujan (mm)": round(max_p, 1)
                 })
             
             st.table(pd.DataFrame(results))
