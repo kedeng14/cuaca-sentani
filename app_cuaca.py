@@ -13,7 +13,7 @@ st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 st.markdown("""
     <style>
            .block-container {
-                padding-top: 3.5rem; 
+                padding-top: 2.5rem; 
                 padding-bottom: 0rem;
                 padding-left: 5rem;
                 padding-right: 5rem;
@@ -86,7 +86,7 @@ except:
 st.markdown("<h1 style='text-align: center;'>Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
 st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
 
-st.subheader("📍 Lokasi Titik Analisis Presisi")
+st.subheader("📍 Lokasi Titik Analisis")
 map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
 st.map(map_data, zoom=13)
 st.caption(f"Titik Koordinat: {lat}, {lon}")
@@ -194,3 +194,4 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
