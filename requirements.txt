@@ -4,3 +4,4 @@ pandas
 numpy
 pytz
 streamlit-autorefresh
+streamlit-folium
