@@ -224,4 +224,4 @@ except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
 
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>© 2026 Kedeng V | Stamet Sentani Smart Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Stamet Sentani Smart Dashboard</div>", unsafe_allow_html=True)
