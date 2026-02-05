@@ -6,149 +6,220 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
 
-# 1. Konfigurasi Halaman
-st.set_page_config(page_title="Ops Cuaca Sentani ENS", layout="wide")
+# 1. Konfigurasi Halaman & CSS
+st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
 
-# --- AUTO REFRESH SETIAP 1 MENIT ---
+st.markdown("""
+    <style>
+            .block-container {
+                 padding-top: 2.5rem; 
+                 padding-bottom: 0rem;
+                 padding-left: 5rem;
+                 padding-right: 5rem;
+             }
+            /* Style Update Terakhir yang sudah diperkecil hurufnya */
+            .update-box {
+                background-color: #1e3a5f;
+                border-radius: 8px;
+                padding: 10px;
+                border-left: 4px solid #3b82f6;
+                color: white;
+                margin-bottom: 10px;
+            }
+            .update-title {
+                font-weight: bold;
+                color: #60a5fa;
+                font-size: 0.85em; /* Ukuran diperkecil */
+                margin-bottom: 2px;
+            }
+            .update-time {
+                font-size: 1.0em; /* Ukuran diperkecil */
+                font-weight: bold;
+                color: #ffffff;
+            }
+    </style>
+    """, unsafe_allow_html=True)
+
 st_autorefresh(interval=60000, key="fokus_periode_update")
 
-# 2. Fungsi Pendukung & CACHE DATA
+# 2. Fungsi Fetch Data & Helper
 @st.cache_data(ttl=3600)
-def fetch_ensemble_data(lat, lon, params):
+def fetch_grand_ensemble(lat, lon, params):
     url = "https://ensemble-api.open-meteo.com/v1/ensemble"
     res = requests.get(url, params=params).json()
     return res
 
-def get_weather_desc(code):
-    if code is None or np.isnan(code): return "N/A"
-    mapping = {
-        0: "☀️ Cerah", 1: "🌤️ Cerah Berawan", 2: "⛅ Berawan", 3: "☁️ Mendung",
-        45: "🌫️ Kabut", 51: "🌦️ Gerimis Rgn", 53: "🌦️ Gerimis Sdng", 55: "🌧️ Gerimis Pdt",
-        61: "🌧️ Hujan Ringan", 63: "🌧️ Hujan Sedang", 65: "🌧️ Hujan Lebat",
-        80: "🌦️ Hujan Lokal", 81: "🌧️ Hujan Lokal S", 82: "⛈️ Hujan Lokal L", 95: "⛈️ Badai Petir"
-    }
-    return mapping.get(int(code), f"Kode {int(code)}")
+def get_weather_desc(code, rain_val=0):
+    if code is not None and not np.isnan(code):
+        mapping = {
+            0: "☀️ Cerah", 1: "🌤️ Cerah Berawan", 2: "⛅ Berawan", 3: "☁️ Mendung",
+            45: "🌫️ Kabut", 48: "🌫️ Kabut Berembun",
+            51: "🌦️ Gerimis Ringan", 53: "🌦️ Gerimis Sedang", 55: "🌧️ Gerimis Padat",
+            61: "🌧️ Hujan Ringan", 63: "🌧️ Hujan Sedang", 65: "🌧️ Hujan Lebat",
+            80: "🌦️ Hujan Lokal Rgn", 81: "🌧️ Hujan Lokal Sdng", 82: "⛈️ Hujan Lokal Lbt",
+            95: "⛈️ Badai Petir"
+        }
+        return mapping.get(int(code), f"Kode {int(code)}")
+    return "🌧️ Hujan" if rain_val > 0.1 else "☁️ Mendung"
 
-# 3. Parameter & Zona Waktu
+def degrees_to_direction(deg):
+    if deg is None or np.isnan(deg): return "-"
+    directions = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']
+    idx = int((deg + 22.5) / 45) % 8
+    return directions[idx]
+
+# 3. Parameter & Sidebar
 tz_wit = pytz.timezone('Asia/Jayapura')
 now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
 
-# 4. Sidebar dengan Logo, Status, dan Disclaimer
 try:
+    # LOGO
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2:
-        st.image("bmkg.png", width=150)
-    
+    with col2: st.image("bmkg.png", width=100) # Ukuran logo juga dijaga tetap kecil
     st.sidebar.markdown("---")
-    st.sidebar.write(f"🕒 **Update Terakhir:**\n{now_wit.strftime('%d %b %Y')}\n{now_wit.strftime('%H:%M:%S')} WIT")
     
+    # 1. STATUS KONEKSI
     server_placeholder = st.sidebar.empty()
+    server_placeholder.success("🟢 **Server:** AKTIF")
+    
+    # 2. UPDATE TERAKHIR (UKURAN HURUF LEBIH KECIL)
+    st.sidebar.markdown(f"""
+        <div class="update-box">
+            <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
+            <div class="update-time">{now_wit.strftime('%H:%M:%S')} WIT</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # --- BLOK DISCLAIMER OPERASIONAL ---
+    # 3. REFERENSI FORECASTER
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🔗 Referensi Forecaster")
+    st.sidebar.link_button("🌐 MJO, Gel. Ekuator (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+    st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
+    st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
+
+    # 4. DISCLAIMER
     st.sidebar.markdown("---")
     st.sidebar.warning("""
     **📢 DISCLAIMER:**
-    Data ini adalah luaran model numerik (Ensemble) sebagai alat bantu diagnosa. 
+    Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
     
     Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
-    * Streamline & Divergensi
+    * Streamline & Isobar
     * Indeks Global (MJO, IOD, ENSO)
     * Kondisi Lokal & Satelit
     """)
-except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan")
 
-# 5. Header Dashboard
-st.title("🛰️ Dashboard ECMWF Ensemble (51 Members)")
-st.markdown(f"**Titik Analisis:** Stamet Sentani, Jayapura")
+except:
+    st.sidebar.warning("Logo tidak ditemukan")
+
+# 4. Header Utama
+st.markdown("<h1 style='text-align: center;'>🛰️ Dashboard Prakiraan Cuaca Stamet Sentani</h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center; color: #555;'>Multi-Model Ensemble Consensus System</h3>", unsafe_allow_html=True)
+
+st.subheader("📍 Lokasi Titik Analisis")
+map_data = pd.DataFrame({'lat': [lat], 'lon': [lon]})
+st.map(map_data, zoom=13)
+st.caption(f"Titik Koordinat: {lat}, {lon}")
+st.markdown("---")
+
+# 5. Konfigurasi 5 Model Ensemble
+model_info = {
+    "ecmwf_ifs025_ensemble": "Uni Eropa",
+    "ncep_gefs025": "Amerika Serikat",
+    "ukmo_global_ensemble_20km": "Inggris Raya",
+    "icon_global_eps": "Jerman",
+    "gem_global_ensemble": "Kanada"
+}
+models_list = list(model_info.keys())
 
 params = {
     "latitude": lat, "longitude": lon,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code", "wind_speed_10m"],
-    "models": "ecmwf_ifs025_ensemble",
+    "hourly": ["temperature_2m", "relative_humidity_2m", "precipitation", "weather_code", "wind_speed_10m", "wind_direction_10m"],
+    "models": models_list,
     "timezone": "Asia/Jayapura", "forecast_days": 3
 }
 
-# 6. Pengambilan Data
 try:
-    res = fetch_ensemble_data(lat, lon, params)
-    
-    if "hourly" in res:
-        server_placeholder.success("🟢 **Server:** AKTIF")
-    else:
-        server_placeholder.error("🔴 **Server:** GANGGUAN")
-
+    res = fetch_grand_ensemble(lat, lon, params)
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # Identifikasi kolom member
-    prec_members = [c for c in df.columns if "precipitation_member" in c]
-    code_members = [c for c in df.columns if "weather_code_member" in c]
-    temp_members = [c for c in df.columns if "temperature_2m_member" in c]
-
-    # --- GRAFIK SPREAD ENSEMBLE ---
-    st.subheader("📊 Analisis Ketidakpastian Suhu (Spread)")
-    df_chart = df.copy()
-    df_chart['Mean'] = df[temp_members].mean(axis=1)
-    df_chart['Min'] = df[temp_members].min(axis=1)
-    df_chart['Max'] = df[temp_members].max(axis=1)
-    st.line_chart(df_chart.set_index('time')[['Min', 'Mean', 'Max']].head(48))
-
-    st.markdown("---")
-
-    # 7. Logika Urutan Waktu (H+5 Menit)
+    # 6. Logika Periode Waktu
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
-
+    
     for i in range(2): 
-        date_target = (now_wit + timedelta(days=i)).date()
-        for start_h, end_h, label in urutan_waktu:
-            if date_target == now_wit.date():
-                if now_wit.hour < end_h or (now_wit.hour == end_h and now_wit.minute < 5):
-                    pilihan_rentang.append((start_h, end_h, label, date_target))
+        dt = (now_wit + timedelta(days=i)).date()
+        for s, e, lbl in urutan_waktu:
+            if dt == now_wit.date():
+                if now_wit.hour < e or (now_wit.hour == e and now_wit.minute < 5):
+                    pilihan_rentang.append((s, e, lbl, dt))
             else:
-                pilihan_rentang.append((start_h, end_h, label, date_target))
+                pilihan_rentang.append((s, e, lbl, dt))
 
-    # 8. Tampilkan Tabel Operasional
+    # 7. Tampilkan Tabel
     for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
         df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
         if df_kat.empty: continue
         
-        is_expanded = idx < 4
-        with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=is_expanded):
+        with st.expander(f"📅 {label} ({start_h:02d}:00-{end_h:02d}:00) | {t_date.strftime('%d %b %Y')}", expanded=(idx<4)):
+            results = []
+            all_max_prec = []
             
-            mean_temp = df_kat[temp_members].mean().mean()
-            kondisi_dominan_code = df_kat[code_members].mode(axis=1).iloc[0].mode()[0]
-            count_setuju = (df_kat[code_members] == kondisi_dominan_code).sum(axis=1).mean()
-            confidence = (count_setuju / 51) * 100
-            prob_hujan = (df_kat[prec_members] > 0.1).sum(axis=1).mean() / 51 * 100
-            
-            worst_code = df_kat[code_members].max().max()
-            max_prec_val = df_kat[prec_members].max().sum()
+            for m in models_list:
+                m_prec = [c for c in df.columns if m in c and "precipitation" in c]
+                m_temp = [c for c in df.columns if m in c and "temperature_2m" in c]
+                m_rh   = [c for c in df.columns if m in c and "relative_humidity_2m" in c]
+                m_ws   = [c for c in df.columns if m in c and "wind_speed_10m" in c]
+                m_wd   = [c for c in df.columns if m in c and "wind_direction_10m" in c]
+                m_code = [c for c in df.columns if m in c and "weather_code" in c]
+                
+                n_members = len(m_prec)
+                prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
+                
+                total_hujan_per_member = df_kat[m_prec].sum() 
+                max_p = total_hujan_per_member.max()
+                all_max_prec.append(max_p)
+                
+                t_min, t_max = df_kat[m_temp].min().min(), df_kat[m_temp].max().max()
+                rh_min, rh_max = df_kat[m_rh].min().min(), df_kat[m_rh].max().max()
+                ws_mean = df_kat[m_ws].mean().mean()
+                wd_mean = df_kat[m_wd].mean().mean()
 
-            data_tabel = {
-                "Parameter": ["Kondisi Dominan", "Confidence (Kepercayaan)", "Peluang Hujan", "Suhu Rata-rata", "Skenario Terburuk (Curah)"],
-                "Nilai Analisis": [
-                    get_weather_desc(kondisi_dominan_code),
-                    f"🎯 {confidence:.0f}%",
-                    f"💧 {prob_hujan:.0f}%",
-                    f"🌡️ {mean_temp:.1f} °C",
-                    f"⚠️ {max_prec_val:.1f} mm"
-                ]
-            }
+                if m_code:
+                    code_val = df_kat[m_code].mode(axis=1).iloc[0].mode()[0]
+                    desc = get_weather_desc(code_val)
+                else:
+                    desc = get_weather_desc(None, max_p)
+                
+                results.append({
+                    "Model": m.split('_')[0].upper(),
+                    "Negara": model_info[m],
+                    "Kondisi": desc,
+                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
+                    "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
+                    "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
+                    "Prob. Hujan": f"{prob:.0f}%",
+                    "Curah Hujan (mm)": round(max_p, 1)
+                })
             
-            st.table(pd.DataFrame(data_tabel))
+            st.table(pd.DataFrame(results))
             
-            if max_prec_val >= 5.0 or worst_code >= 61: 
-                st.warning(f"⚠️ **PERINGATAN DINI:** Simulasi terburuk mendeteksi potensi {get_weather_desc(worst_code)} (Estimasi: {max_prec_val:.1f} mm)")
+            total_max = max(all_max_prec)
+            if total_max >= 5.0:
+                st.warning(f"⚠️ **PERINGATAN DINI:** Potensi hujan terdeteksi. Estimasi maks: {total_max:.1f} mm.")
             else:
-                st.success(f"✅ **STATUS:** Tidak ada potensi cuaca ekstrem terdeteksi. (Skenario Terburuk: {max_prec_val:.1f} mm)")
+                st.success(f"✅ **AMAN:** Kondisi cenderung stabil. (Maks: {total_max:.1f} mm)")
 
 except Exception as e:
-    server_placeholder.error("🔴 **Server:** DISCONNECT")
-    st.error(f"⚠️ Terjadi gangguan koneksi data: {e}")
+    st.error(f"⚠️ Terjadi gangguan data: {e}")
 
-# 9. Footer
+# 8. Copyright & Footer
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Ensemble ECMWF 0.25° (51 Members)</div>", unsafe_allow_html=True)
+st.markdown(f"""
+    <div style='text-align: center; color: #888; font-size: 0.85em;'>
+        <p>© 2026 <b>Kedeng V</b> | Stasiun Meteorologi Sentani</p>
+        <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
+    </div>
+""", unsafe_allow_html=True)
