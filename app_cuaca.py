@@ -212,7 +212,7 @@ try:
                 results.append({
                     "Model": m.split('_')[0].upper(),
                     "Kondisi": desc,
-                    "Kepastian": confidence,
+                    "Indeks Kepastian": confidence,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
@@ -244,4 +244,5 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
 
