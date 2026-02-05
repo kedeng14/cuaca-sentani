@@ -64,12 +64,12 @@ def analyze_consensus(conditions_list):
     else:
         return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Cek Satelit & Radar!", "warning"
 
-# --- SIDEBAR: LOGO & PENCARIAN LOKASI ---
+# --- SIDEBAR: LOGO, LOKASI & DISCLAIMER ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
     with col_logo2: st.image("bmkg.png", width=100)
 except:
-    st.sidebar.warning("File bmkg.png tidak ditemukan")
+    st.sidebar.warning("Logo tidak ditemukan")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🌍 Penentuan Lokasi")
@@ -100,9 +100,28 @@ now_local = datetime.now(tz_local)
 
 st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S')} {tz_pilihan}")
 
+# --- REFERENSI FORECASTER ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔗 Referensi Forecaster")
+st.sidebar.link_button("🌐 MJO, Gel. Ekuator (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
+st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
+st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
+
+# --- DISCLAIMER (SUDAH DIKEMBALIKAN) ---
+st.sidebar.markdown("---")
+st.sidebar.warning("""
+**📢 DISCLAIMER:**
+Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
+    
+Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
+* Streamline & Isobar
+* Indeks Global (MJO, IOD, ENSO)
+* Kondisi Lokal & Satelit
+""")
+
 # --- HEADER DASHBOARD ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
-st.markdown(f"Analisis Multi-Model Global untuk **{pilihan if pilihan != 'Cari Lokasi Lain...' else found_name if input_kota else 'Sentani'}**")
+st.markdown(f"Analisis Multi-Model Global untuk **{pilihan if pilihan != 'Cari Lokasi Lain...' else found_name if 'found_name' in locals() else 'Sentani'}**")
 
 # --- PETA ---
 st.map(pd.DataFrame({'lat': [lat], 'lon': [lon]}), zoom=12)
@@ -149,11 +168,9 @@ try:
             conditions_for_analysis = []
             
             for m, negara in model_info.items():
-                # Proteksi NaN untuk Integer Conversion
                 raw_code = df_kat[f"weather_code_{m}"].max()
                 raw_prob = df_kat[f"precipitation_probability_{m}"].max()
                 
-                # Handling NaN
                 code_val = raw_code if not np.isnan(raw_code) else None
                 prob_val = raw_prob if not np.isnan(raw_prob) else 0
                 
@@ -178,7 +195,6 @@ try:
             
             st.table(pd.DataFrame(data_tabel))
             
-            # Tampilkan Analisis Konsensus
             consensus_msg, msg_type = analyze_consensus(conditions_for_analysis)
             if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
