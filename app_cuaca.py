@@ -17,7 +17,6 @@ st.markdown("""
                  padding-left: 5rem;
                  padding-right: 5rem;
              }
-            /* Style Update Terakhir yang sudah diperkecil hurufnya */
             .update-box {
                 background-color: #1e3a5f;
                 border-radius: 8px;
@@ -29,11 +28,11 @@ st.markdown("""
             .update-title {
                 font-weight: bold;
                 color: #60a5fa;
-                font-size: 0.85em; /* Ukuran diperkecil */
+                font-size: 0.85em;
                 margin-bottom: 2px;
             }
             .update-time {
-                font-size: 1.0em; /* Ukuran diperkecil */
+                font-size: 1.0em;
                 font-weight: bold;
                 color: #ffffff;
             }
@@ -62,6 +61,11 @@ def get_weather_desc(code, rain_val=0):
         return mapping.get(int(code), f"Kode {int(code)}")
     return "🌧️ Hujan" if rain_val > 0.1 else "☁️ Mendung"
 
+def get_confidence(std_val):
+    if std_val < 1.0: return "🟢 Tinggi"
+    elif std_val < 2.5: return "🟡 Sedang"
+    else: return "🔴 Rendah"
+
 def degrees_to_direction(deg):
     if deg is None or np.isnan(deg): return "-"
     directions = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']
@@ -76,14 +80,14 @@ lat, lon = -2.5756744335142865, 140.5185071099937
 try:
     # LOGO
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
-    with col2: st.image("bmkg.png", width=100) # Ukuran logo juga dijaga tetap kecil
+    with col2: st.image("bmkg.png", width=100)
     st.sidebar.markdown("---")
     
     # 1. STATUS KONEKSI
     server_placeholder = st.sidebar.empty()
     server_placeholder.success("🟢 **Server:** AKTIF")
     
-    # 2. UPDATE TERAKHIR (UKURAN HURUF LEBIH KECIL)
+    # 2. UPDATE TERAKHIR
     st.sidebar.markdown(f"""
         <div class="update-box">
             <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
@@ -178,6 +182,10 @@ try:
                 n_members = len(m_prec)
                 prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
                 
+                # HITUNG STANDAR DEVIASI (Suhu sebagai proksi spread)
+                std_temp = df_kat[m_temp].std(axis=1).mean()
+                confidence = get_confidence(std_temp)
+
                 total_hujan_per_member = df_kat[m_prec].sum() 
                 max_p = total_hujan_per_member.max()
                 all_max_prec.append(max_p)
@@ -195,13 +203,13 @@ try:
                 
                 results.append({
                     "Model": m.split('_')[0].upper(),
-                    "Negara": model_info[m],
                     "Kondisi": desc,
+                    "Kepastian": confidence, # KOLOM BARU
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
-                    "Angin (km/jam)": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
+                    "Angin": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
                     "Prob. Hujan": f"{prob:.0f}%",
-                    "Curah Hujan (mm)": round(max_p, 1)
+                    "Hujan (mm)": round(max_p, 1)
                 })
             
             st.table(pd.DataFrame(results))
@@ -223,4 +231,3 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
-
