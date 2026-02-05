@@ -64,7 +64,7 @@ def analyze_consensus(conditions_list):
     else:
         return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Wajib cek Satelit!", "warning"
 
-# --- LOGIKA STATE UNTUK KLIK PETA ---
+# --- INISIALISASI SESSION STATE ---
 if 'lat' not in st.session_state:
     st.session_state.lat = -2.5757
 if 'lon' not in st.session_state:
@@ -74,7 +74,7 @@ if 'found_name' not in st.session_state:
 if 'tz_pilihan' not in st.session_state:
     st.session_state.tz_pilihan = "Asia/Jayapura"
 
-# --- SIDEBAR & LOGIKA PENENTUAN LOKASI ---
+# --- SIDEBAR ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
     with col_logo2: st.image("bmkg.png", width=100)
@@ -97,13 +97,16 @@ if pilihan == "Cari Lokasi Lain...":
     if input_kota:
         lat_res, lon_res, name_res, tz_res = get_coordinates(input_kota)
         if lat_res:
-            st.session_state.lat, st.session_state.lon = lat_res, lon_res
-            st.session_state.found_name, st.session_state.tz_pilihan = name_res, tz_res
-            st.sidebar.success(f"📍 Ditemukan: {name_res}")
+            if st.session_state.lat != lat_res or st.session_state.lon != lon_res:
+                st.session_state.lat, st.session_state.lon = lat_res, lon_res
+                st.session_state.found_name, st.session_state.tz_pilihan = name_res, tz_res
+                st.rerun()
 else:
     lat_fav, lon_fav, tz_fav = lokasi_favorit[pilihan]
-    st.session_state.lat, st.session_state.lon = lat_fav, lon_fav
-    st.session_state.found_name, st.session_state.tz_pilihan = pilihan, tz_fav
+    if st.session_state.lat != lat_fav or st.session_state.lon != lon_fav:
+        st.session_state.lat, st.session_state.lon = lat_fav, lon_fav
+        st.session_state.found_name, st.session_state.tz_pilihan = pilihan, tz_fav
+        st.rerun()
 
 lat, lon = st.session_state.lat, st.session_state.lon
 found_name = st.session_state.found_name
@@ -121,168 +124,106 @@ st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca
 st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
 st.sidebar.markdown("---")
-st.sidebar.warning("""
-**📢 DISCLAIMER:**
-Data ini adalah luaran model numerik sebagai alat bantu diagnosa.
+st.sidebar.warning("""**📢 DISCLAIMER:** Data ini adalah luaran model numerik. Keputusan akhir berada pada Analisis Forecaster.""")
 
-Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
-* Streamline & Isobar
-* Indeks Global (MJO, IOD, ENSO)
-* Kondisi Lokal & Satelit
-""")
-
-# --- KONFIGURASI DATA ---
+# --- KONFIGURASI MODEL ---
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
     "ukmo_seamless": "Inggris"
 }
 
-# --- LOGIKA KONSENSUS PIN PETA ---
-pin_color = "green"
-worst_desc = "Cerah"
-
-try:
-    res_now = requests.get("https://api.open-meteo.com/v1/forecast", params={
-        "latitude": lat, "longitude": lon,
-        "hourly": ["weather_code"],
-        "models": list(model_info.keys()),
-        "timezone": tz_pilihan, "forecast_days": 1
-    }).json()
-    
-    current_codes = []
-    for m in model_info.keys():
-        key = f"weather_code_{m}"
-        if key in res_now["hourly"]:
-            val = res_now["hourly"][key][0]
-            if not np.isnan(val):
-                current_codes.append(int(val))
-    
-    if current_codes:
-        most_common_code = Counter(current_codes).most_common(1)[0][0]
-        worst_desc = get_weather_desc(most_common_code)
-        max_code = max(current_codes)
-        if max_code >= 95: pin_color = "red"
-        elif max_code >= 51: pin_color = "blue"
-        elif max_code >= 1: pin_color = "orange"
-        else: pin_color = "green"
-except:
-    pass
-
-# --- HEADER & PETA (DENGAN FITUR KLIK) ---
+# --- HEADER & PETA (OPTIMASI KLIK) ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
 st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
-st.info("💡 **Tips:** Anda bisa mengetik lokasi di sidebar atau **langsung klik di peta** untuk mengubah titik analisis.")
+
+# Hitung warna pin dari konsensus real-time (singkat saja)
+pin_color = "green"
+try:
+    res_p = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=weather_code&models=ecmwf_ifs&timezone={tz_pilihan}&forecast_days=1").json()
+    code_p = res_p["hourly"]["weather_code_ecmwf_ifs"][0]
+    if code_p >= 95: pin_color = "red"
+    elif code_p >= 51: pin_color = "blue"
+    elif code_p >= 1: pin_color = "orange"
+except: pass
 
 m = folium.Map(location=[lat, lon], zoom_start=12)
-folium.Marker(
-    [lat, lon], 
-    popup=f"{found_name}: {worst_desc}", 
-    tooltip=f"Konsensus Saat Ini: {worst_desc}",
-    icon=folium.Icon(color=pin_color, icon='cloud' if pin_color != 'green' else 'sun')
-).add_to(m)
+folium.Marker([lat, lon], icon=folium.Icon(color=pin_color, icon='info-sign')).add_to(m)
 
-# Tampilkan peta dan tangkap data klik
-map_data = st_folium(m, width=None, height=350, key="peta_utama")
+# Tampilkan peta (returned_objects kosong untuk performa, gunakan event klik saja)
+map_output = st_folium(m, width="100%", height=350, key="main_map")
 
-# Logika jika peta diklik
-if map_data['last_clicked']:
-    clicked_lat = map_data['last_clicked']['lat']
-    clicked_lon = map_data['last_clicked']['lng']
-    
-    # Hanya update jika koordinat berbeda (menghindari loop)
-    if clicked_lat != st.session_state.lat or clicked_lon != st.session_state.lon:
-        st.session_state.lat = clicked_lat
-        st.session_state.lon = clicked_lon
-        st.session_state.found_name = f"Koordinat Custom ({clicked_lat:.4f}, {clicked_lon:.4f})"
+# Logika Klik yang Efisien
+if map_output.get("last_clicked"):
+    c_lat = map_output["last_clicked"]["lat"]
+    c_lon = map_output["last_clicked"]["lng"]
+    # Hanya rerun jika jarak klik signifikan (mencegah loop halus)
+    if abs(c_lat - st.session_state.lat) > 0.001 or abs(c_lon - st.session_state.lon) > 0.001:
+        st.session_state.lat = c_lat
+        st.session_state.lon = c_lon
+        st.session_state.found_name = f"Koordinat ({c_lat:.3f}, {c_lon:.3f})"
         st.rerun()
 
 st.markdown("---")
 
-# --- GRAFIK & TABEL ---
-params = {
-    "latitude": lat, "longitude": lon,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
-               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-    "models": list(model_info.keys()),
-    "timezone": tz_pilihan,
-    "forecast_days": 3
-}
-
+# --- PENGAMBILAN DATA UTAMA ---
 try:
+    params = {
+        "latitude": lat, "longitude": lon,
+        "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
+        "models": list(model_info.keys()),
+        "timezone": tz_pilihan, "forecast_days": 3
+    }
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({tz_pilihan})")
-    col_chart1, col_chart2 = st.columns(2)
-    
-    temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
-    df_temp_chart = df[['time']].copy()
-    df_temp_chart['Suhu Rata-rata (°C)'] = df[temp_cols].mean(axis=1)
-    
-    prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
-    df_prob_chart = df[['time']].copy()
-    df_prob_chart['Peluang Hujan Maks (%)'] = df[prob_cols].max(axis=1)
+    # --- GRAFIK ---
+    st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan")
+    col1, col2 = st.columns(2)
+    with col1:
+        temp_data = df[['time']].copy()
+        temp_data['Suhu (°C)'] = df[[f"temperature_2m_{m}" for m in model_info.keys()]].mean(axis=1)
+        st.line_chart(temp_data.set_index('time').head(48))
+    with col2:
+        prob_data = df[['time']].copy()
+        prob_data['Peluang Hujan (%)'] = df[[f"precipitation_probability_{m}" for m in model_info.keys()]].max(axis=1)
+        st.area_chart(prob_data.set_index('time').head(48))
 
-    with col_chart1:
-        st.write("**Grafik Fluktuasi Suhu (°C)**")
-        st.line_chart(df_temp_chart.set_index('time').head(48))
-
-    with col_chart2:
-        st.write("**Grafik Peluang Hujan (%)**")
-        st.area_chart(df_prob_chart.set_index('time').head(48))
-    
     st.markdown("---")
 
-    pilihan_rentang = []
+    # --- TABEL ---
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
-
+    pilihan_rentang = []
     for i in range(2): 
-        date_target = (now_local + timedelta(days=i)).date()
-        for start_h, end_h, label in urutan_waktu:
-            if date_target == now_local.date():
-                if now_local.hour < end_h: pilihan_rentang.append((start_h, end_h, label, date_target))
-            else: pilihan_rentang.append((start_h, end_h, label, date_target))
+        d = (now_local + timedelta(days=i)).date()
+        for s, e, l in urutan_waktu:
+            if d == now_local.date() and now_local.hour >= e: continue
+            pilihan_rentang.append((s, e, l, d))
 
-    for idx, (start_h, end_h, label, t_date) in enumerate(pilihan_rentang):
-        df_kat = df[(df['time'].dt.date == t_date) & (df['time'].dt.hour >= start_h) & (df['time'].dt.hour < end_h)]
-        if df_kat.empty: continue
-        
-        with st.expander(f"📅 {label} ({start_h:02d}-{end_h:02d}) | {t_date.strftime('%d %B %Y')}", expanded=(idx < 4)):
-            data_tabel = []
-            conditions_for_analysis = []
-            
-            for m, negara in model_info.items():
-                raw_code = df_kat[f"weather_code_{m}"].max()
-                raw_prob = df_kat[f"precipitation_probability_{m}"].max()
-                code_val = raw_code if not np.isnan(raw_code) else None
-                prob_val = raw_prob if not np.isnan(raw_prob) else 0
-                
-                desc = get_weather_desc(code_val)
-                conditions_for_analysis.append(desc)
-                
-                t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                prec = df_kat[f"precipitation_{m}"].sum()
-                w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
-                w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
-
-                data_tabel.append({
-                    "Model": m.split('_')[0].upper(), "Asal": negara, "Kondisi": desc,
-                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                    "Prob. Hujan": f"{int(prob_val)}%", 
-                    "Curah (mm)": round(np.nan_to_num(prec), 1),
-                    "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
+    for idx, (sh, eh, lb, td) in enumerate(pilihan_rentang):
+        df_k = df[(df['time'].dt.date == td) & (df['time'].dt.hour >= sh) & (df['time'].dt.hour < eh)]
+        if df_k.empty: continue
+        with st.expander(f"📅 {lb} | {td.strftime('%d %b')}", expanded=(idx==0)):
+            data_t = []
+            cond_list = []
+            for m, neg in model_info.items():
+                rc = df_k[f"weather_code_{m}"].max()
+                rp = df_k[f"precipitation_probability_{m}"].max()
+                desc = get_weather_desc(rc if not np.isnan(rc) else None)
+                cond_list.append(desc)
+                data_t.append({
+                    "Model": m.split('_')[0].upper(), "Asal": neg, "Kondisi": desc,
+                    "Suhu": f"{df_k[f'temperature_2m_{m}'].min():.1f}-{df_k[f'temperature_2m_{m}'].max():.1f}",
+                    "Prob": f"{int(np.nan_to_num(rp))}%",
+                    "Curah": round(df_k[f"precipitation_{m}"].sum(), 1),
+                    "Angin": f"{df_k[f'wind_speed_10m_{m}'].mean():.1f} {degrees_to_direction(df_k[f'wind_direction_10m_{m}'].mean())}"
                 })
-            
-            st.table(pd.DataFrame(data_tabel))
-            consensus_msg, msg_type = analyze_consensus(conditions_for_analysis)
-            if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
-            elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
-            else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
+            st.table(pd.DataFrame(data_t))
+            c_msg, c_type = analyze_consensus(cond_list)
+            st.info(f"🤝 **Kepastian:** {c_msg}")
 
 except Exception as e:
-    st.error(f"⚠️ Terjadi gangguan data: {e}")
+    st.error(f"⚠️ Error Data: {e}")
 
-st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Stamet Sentani Smart Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>Copyright © 2026 Kedeng V | Stamet Sentani</div>", unsafe_allow_html=True)
