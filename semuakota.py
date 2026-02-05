@@ -112,6 +112,8 @@ st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAG
 st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
+Data ini adalah luaran model numerik sebagai alat bantu diagnosa.
+
 Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
 * Streamline & Isobar
 * Indeks Global (MJO, IOD, ENSO)
