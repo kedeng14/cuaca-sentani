@@ -225,7 +225,7 @@ try:
             # --- ANALISIS KONSENSUS ANTAR MODEL ---
             all_conds = [r["Kondisi"] for r in results]
             consensus_msg, consensus_clr = get_consensus_level(all_conds)
-            st.markdown(f"**Analisis Konsensus Dunia:** :{consensus_clr}[{consensus_msg}]")
+            st.markdown(f"**Analisis Konsensus Model Dunia:** :{consensus_clr}[{consensus_msg}]")
             
             total_max = max(all_max_prec)
             if total_max >= 5.0:
@@ -244,3 +244,4 @@ st.markdown(f"""
         <p>Data Source: ECMWF, NCEP, UKMO, DWD, ECCC via Open-Meteo Ensemble API</p>
     </div>
 """, unsafe_allow_html=True)
+
