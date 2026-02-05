@@ -102,7 +102,11 @@ else:
 tz_local = pytz.timezone(tz_pilihan)
 now_local = datetime.now(tz_local)
 
-st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S')} {tz_pilihan}")
+# Menghitung Offset GMT untuk tampilan user
+gmt_offset = now_local.strftime('%z')
+gmt_display = f"GMT+{int(gmt_offset[:3])}" if gmt_offset.startswith('+') else f"GMT{int(gmt_offset[:3])}"
+
+st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S')} ({gmt_display})")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔗 Referensi Forecaster")
@@ -142,7 +146,6 @@ pin_color = "green"
 worst_desc = "Cerah"
 
 try:
-    # Ambil data jam pertama (current hour) dari semua model
     res_now = requests.get("https://api.open-meteo.com/v1/forecast", params={
         "latitude": lat, "longitude": lon,
         "hourly": ["weather_code"],
@@ -150,7 +153,6 @@ try:
         "timezone": tz_pilihan, "forecast_days": 1
     }).json()
     
-    # Ambil semua kode dari model yang ada datanya
     current_codes = []
     for m in model_info.keys():
         key = f"weather_code_{m}"
@@ -160,11 +162,9 @@ try:
                 current_codes.append(int(val))
     
     if current_codes:
-        # Gunakan Suara Terbanyak (Mode) untuk deskripsi Pin
         most_common_code = Counter(current_codes).most_common(1)[0][0]
         worst_desc = get_weather_desc(most_common_code)
         
-        # Gunakan Kode Tertinggi untuk menentukan warna Pin (Prinsip Safety/Terburuk)
         max_code = max(current_codes)
         if max_code >= 95: pin_color = "red"
         elif max_code >= 51: pin_color = "blue"
@@ -194,7 +194,8 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({tz_pilihan})")
+    # PERUBAHAN DISINI: Judul menggunakan format GMT
+    st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({gmt_display})")
     col_chart1, col_chart2 = st.columns(2)
     
     temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
