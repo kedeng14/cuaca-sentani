@@ -74,8 +74,11 @@ def degrees_to_direction(deg):
 st.title("🛰️ Dashboard Operasional Cuaca Stamet Sentani")
 st.markdown("Analisis Komparasi 7 Model Global Real-Time")
 
-# 4. Parameter Presisi
-lat, lon = -2.5756744335142865, 140.5185071099937
+# 4. Parameter Presisi Sentani
+#lat, lon = -2.5756744335142865, 140.5185071099937
+
+# 4. Parameter Presisi Madiun
+lat, lon = -7.625769692085872, 111.53024695146696
 
 # 5. Bagian Peta Interaktif
 st.subheader("📍 Lokasi Titik Analisis Presisi")
