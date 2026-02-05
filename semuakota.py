@@ -87,6 +87,8 @@ st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S'
 st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
+Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
+
 Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
 * Streamline & Isobar
 * Indeks Global (MJO, IOD, ENSO)
