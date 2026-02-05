@@ -121,7 +121,7 @@ Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
 * Kondisi Lokal & Satelit
 """)
 
-# --- KONFIGURASI DATA (DIPINDAH KE ATAS AGAR PETA BISA BACA KONDISI) ---
+# --- KONFIGURASI DATA ---
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
@@ -134,20 +134,38 @@ params = {
                "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
     "models": list(model_info.keys()),
     "timezone": tz_pilihan,
-    "forecast_days": 1 # Ambil 1 hari saja untuk penentuan warna pin
+    "forecast_days": 3
 }
 
-# Logika Warna Pin Default
+# --- LOGIKA KONSENSUS PIN PETA (PERBAIKAN) ---
 pin_color = "green"
 worst_desc = "Cerah"
 
 try:
-    # Cek Kondisi Sekarang untuk Warna Pin
-    res_pin = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
-    all_codes_now = [res_pin["hourly"][f"weather_code_{m}"][0] for m in model_info.keys() if f"weather_code_{m}" in res_pin["hourly"]]
-    if all_codes_now:
-        max_code = max(all_codes_now)
-        worst_desc = get_weather_desc(max_code)
+    # Ambil data jam pertama (current hour) dari semua model
+    res_now = requests.get("https://api.open-meteo.com/v1/forecast", params={
+        "latitude": lat, "longitude": lon,
+        "hourly": ["weather_code"],
+        "models": list(model_info.keys()),
+        "timezone": tz_pilihan, "forecast_days": 1
+    }).json()
+    
+    # Ambil semua kode dari model yang ada datanya
+    current_codes = []
+    for m in model_info.keys():
+        key = f"weather_code_{m}"
+        if key in res_now["hourly"]:
+            val = res_now["hourly"][key][0]
+            if not np.isnan(val):
+                current_codes.append(int(val))
+    
+    if current_codes:
+        # Gunakan Suara Terbanyak (Mode) untuk deskripsi Pin
+        most_common_code = Counter(current_codes).most_common(1)[0][0]
+        worst_desc = get_weather_desc(most_common_code)
+        
+        # Gunakan Kode Tertinggi untuk menentukan warna Pin (Prinsip Safety/Terburuk)
+        max_code = max(current_codes)
         if max_code >= 95: pin_color = "red"
         elif max_code >= 51: pin_color = "blue"
         elif max_code >= 1: pin_color = "orange"
@@ -155,33 +173,27 @@ try:
 except:
     pass
 
-# --- HEADER & PETA (FOLIUM DENGAN WARNA DINAMIS) ---
+# --- HEADER & PETA ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
 st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
 
-# Buat objek peta Folium
 m = folium.Map(location=[lat, lon], zoom_start=12)
 folium.Marker(
     [lat, lon], 
     popup=f"{found_name}: {worst_desc}", 
-    tooltip=f"Kondisi Terkini: {worst_desc}",
+    tooltip=f"Konsensus Saat Ini: {worst_desc}",
     icon=folium.Icon(color=pin_color, icon='cloud' if pin_color != 'green' else 'sun')
 ).add_to(m)
 
-# Tampilkan peta
 st_folium(m, width=None, height=350, returned_objects=[])
 st.markdown("---")
 
-# --- LANJUTKAN KE GRAFIK & TABEL ---
-# Ambil data 3 hari untuk grafik dan tabel
-params["forecast_days"] = 3
-
+# --- GRAFIK & TABEL ---
 try:
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # --- BAGIAN GRAFIK ---
     st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({tz_pilihan})")
     col_chart1, col_chart2 = st.columns(2)
     
@@ -203,7 +215,6 @@ try:
     
     st.markdown("---")
 
-    # --- TABEL PERIODE ---
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
 
@@ -225,23 +236,19 @@ try:
             for m, negara in model_info.items():
                 raw_code = df_kat[f"weather_code_{m}"].max()
                 raw_prob = df_kat[f"precipitation_probability_{m}"].max()
-                
                 code_val = raw_code if not np.isnan(raw_code) else None
                 prob_val = raw_prob if not np.isnan(raw_prob) else 0
                 
                 desc = get_weather_desc(code_val)
                 conditions_for_analysis.append(desc)
                 
-                t_min = df_kat[f"temperature_2m_{m}"].min()
-                t_max = df_kat[f"temperature_2m_{m}"].max()
+                t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
                 w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
 
                 data_tabel.append({
-                    "Model": m.split('_')[0].upper(), 
-                    "Asal": negara, 
-                    "Kondisi": desc,
+                    "Model": m.split('_')[0].upper(), "Asal": negara, "Kondisi": desc,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
                     "Prob. Hujan": f"{int(prob_val)}%", 
                     "Curah (mm)": round(np.nan_to_num(prec), 1),
@@ -249,7 +256,6 @@ try:
                 })
             
             st.table(pd.DataFrame(data_tabel))
-            
             consensus_msg, msg_type = analyze_consensus(conditions_for_analysis)
             if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
