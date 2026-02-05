@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
+from collections import Counter
 
 # 1. Konfigurasi Halaman & CSS
 st.set_page_config(page_title="Prakiraan Cuaca Sentani", layout="wide")
@@ -66,6 +67,21 @@ def get_confidence(std_val):
     elif std_val < 2.5: return "🟡 Sedang"
     else: return "🔴 Rendah"
 
+def get_consensus_level(conditions_list):
+    keywords = []
+    for desc in conditions_list:
+        if "Hujan" in desc or "Gerimis" in desc: keywords.append("Hujan")
+        elif "Badai" in desc: keywords.append("Badai")
+        elif "Mendung" in desc or "Berawan" in desc: keywords.append("Berawan")
+        else: keywords.append("Cerah")
+    
+    counts = Counter(keywords)
+    max_agreement = counts.most_common(1)[0][1]
+    
+    if max_agreement >= 4: return "✅ KUAT (Model Kompak)", "blue"
+    elif max_agreement == 3: return "⚠️ SEDANG (Cukup Setuju)", "orange"
+    else: return "🚨 LEMAH (Berbeda Pendapat)", "red"
+
 def degrees_to_direction(deg):
     if deg is None or np.isnan(deg): return "-"
     directions = ['U', 'TL', 'T', 'TG', 'S', 'BD', 'B', 'BL']
@@ -78,16 +94,13 @@ now_wit = datetime.now(tz_wit)
 lat, lon = -2.5756744335142865, 140.5185071099937
 
 try:
-    # LOGO
     col1, col2, col3 = st.sidebar.columns([1, 3, 1])
     with col2: st.image("bmkg.png", width=100)
     st.sidebar.markdown("---")
     
-    # 1. STATUS KONEKSI
     server_placeholder = st.sidebar.empty()
     server_placeholder.success("🟢 **Server:** AKTIF")
     
-    # 2. UPDATE TERAKHIR
     st.sidebar.markdown(f"""
         <div class="update-box">
             <div class="update-title">🕒 Update Terakhir: {now_wit.strftime('%d %b %Y')}</div>
@@ -95,14 +108,12 @@ try:
         </div>
     """, unsafe_allow_html=True)
 
-    # 3. REFERENSI FORECASTER
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔗 Referensi Forecaster")
     st.sidebar.link_button("🌐 MJO, Gel. Ekuator (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
     st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
     st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
-    # 4. DISCLAIMER
     st.sidebar.markdown("---")
     st.sidebar.warning("""
     **📢 DISCLAIMER:**
@@ -113,7 +124,6 @@ try:
     * Indeks Global (MJO, IOD, ENSO)
     * Kondisi Lokal & Satelit
     """)
-
 except:
     st.sidebar.warning("Logo tidak ditemukan")
 
@@ -179,15 +189,13 @@ try:
                 m_wd   = [c for c in df.columns if m in c and "wind_direction_10m" in c]
                 m_code = [c for c in df.columns if m in c and "weather_code" in c]
                 
-                n_members = len(m_prec)
-                prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / n_members * 100
-                
-                # HITUNG STANDAR DEVIASI (Suhu sebagai proksi spread)
+                # Confidence Internal (Internal Spread)
                 std_temp = df_kat[m_temp].std(axis=1).mean()
                 confidence = get_confidence(std_temp)
 
-                total_hujan_per_member = df_kat[m_prec].sum() 
-                max_p = total_hujan_per_member.max()
+                # Probabilitas & Curah Maks (Anggota Terbasah)
+                prob = (df_kat[m_prec] > 0.5).sum(axis=1).mean() / len(m_prec) * 100
+                max_p = df_kat[m_prec].sum().max()
                 all_max_prec.append(max_p)
                 
                 t_min, t_max = df_kat[m_temp].min().min(), df_kat[m_temp].max().max()
@@ -204,7 +212,7 @@ try:
                 results.append({
                     "Model": m.split('_')[0].upper(),
                     "Kondisi": desc,
-                    "Kepastian": confidence, # KOLOM BARU
+                    "Kepastian": confidence,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}",
                     "RH (%)": f"{int(rh_min)}-{int(rh_max)}",
                     "Angin": f"{ws_mean:.1f} {degrees_to_direction(wd_mean)}",
@@ -213,6 +221,11 @@ try:
                 })
             
             st.table(pd.DataFrame(results))
+            
+            # --- ANALISIS KONSENSUS ANTAR MODEL ---
+            all_conds = [r["Kondisi"] for r in results]
+            consensus_msg, consensus_clr = get_consensus_level(all_conds)
+            st.markdown(f"**Analisis Konsensus Dunia:** :{consensus_clr}[{consensus_msg}]")
             
             total_max = max(all_max_prec)
             if total_max >= 5.0:
