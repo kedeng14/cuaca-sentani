@@ -5,6 +5,8 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 from collections import Counter
+import folium
+from streamlit_folium import st_folium
 
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
@@ -80,7 +82,6 @@ lokasi_favorit = {
 
 pilihan = st.sidebar.selectbox("Pilih Lokasi:", list(lokasi_favorit.keys()))
 
-# Inisialisasi default untuk menghindari NameError
 found_name = "Sentani (Stamet)"
 
 if pilihan == "Cari Lokasi Lain...":
@@ -120,14 +121,7 @@ Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
 * Kondisi Lokal & Satelit
 """)
 
-# --- HEADER & PETA ---
-st.title("🛰️ Dashboard Cuaca Smart Consensus System")
-st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
-
-st.map(pd.DataFrame({'lat': [lat], 'lon': [lon]}), zoom=12)
-st.markdown("---")
-
-# --- KONFIGURASI DATA ---
+# --- KONFIGURASI DATA (DIPINDAH KE ATAS AGAR PETA BISA BACA KONDISI) ---
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
@@ -140,8 +134,47 @@ params = {
                "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
     "models": list(model_info.keys()),
     "timezone": tz_pilihan,
-    "forecast_days": 3
+    "forecast_days": 1 # Ambil 1 hari saja untuk penentuan warna pin
 }
+
+# Logika Warna Pin Default
+pin_color = "green"
+worst_desc = "Cerah"
+
+try:
+    # Cek Kondisi Sekarang untuk Warna Pin
+    res_pin = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
+    all_codes_now = [res_pin["hourly"][f"weather_code_{m}"][0] for m in model_info.keys() if f"weather_code_{m}" in res_pin["hourly"]]
+    if all_codes_now:
+        max_code = max(all_codes_now)
+        worst_desc = get_weather_desc(max_code)
+        if max_code >= 95: pin_color = "red"
+        elif max_code >= 51: pin_color = "blue"
+        elif max_code >= 1: pin_color = "orange"
+        else: pin_color = "green"
+except:
+    pass
+
+# --- HEADER & PETA (FOLIUM DENGAN WARNA DINAMIS) ---
+st.title("🛰️ Dashboard Cuaca Smart Consensus System")
+st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
+
+# Buat objek peta Folium
+m = folium.Map(location=[lat, lon], zoom_start=12)
+folium.Marker(
+    [lat, lon], 
+    popup=f"{found_name}: {worst_desc}", 
+    tooltip=f"Kondisi Terkini: {worst_desc}",
+    icon=folium.Icon(color=pin_color, icon='cloud' if pin_color != 'green' else 'sun')
+).add_to(m)
+
+# Tampilkan peta
+st_folium(m, width=None, height=350, returned_objects=[])
+st.markdown("---")
+
+# --- LANJUTKAN KE GRAFIK & TABEL ---
+# Ambil data 3 hari untuk grafik dan tabel
+params["forecast_days"] = 3
 
 try:
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
