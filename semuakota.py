@@ -64,6 +64,16 @@ def analyze_consensus(conditions_list):
     else:
         return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Wajib cek Satelit!", "warning"
 
+# --- LOGIKA STATE UNTUK KLIK PETA ---
+if 'lat' not in st.session_state:
+    st.session_state.lat = -2.5757
+if 'lon' not in st.session_state:
+    st.session_state.lon = 140.5185
+if 'found_name' not in st.session_state:
+    st.session_state.found_name = "Sentani (Stamet)"
+if 'tz_pilihan' not in st.session_state:
+    st.session_state.tz_pilihan = "Asia/Jayapura"
+
 # --- SIDEBAR & LOGIKA PENENTUAN LOKASI ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
@@ -82,22 +92,22 @@ lokasi_favorit = {
 
 pilihan = st.sidebar.selectbox("Pilih Lokasi:", list(lokasi_favorit.keys()))
 
-found_name = "Sentani (Stamet)"
-
 if pilihan == "Cari Lokasi Lain...":
     input_kota = st.sidebar.text_input("Ketik Nama Kota/Kecamatan:", placeholder="Contoh: Wamena")
     if input_kota:
-        lat, lon, found_name, tz_pilihan = get_coordinates(input_kota)
-        if lat: st.sidebar.success(f"📍 Ditemukan: {found_name}")
-        else:
-            lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
-            found_name = "Sentani (Stamet)"
-    else:
-        lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
-        found_name = "Sentani (Stamet)"
+        lat_res, lon_res, name_res, tz_res = get_coordinates(input_kota)
+        if lat_res:
+            st.session_state.lat, st.session_state.lon = lat_res, lon_res
+            st.session_state.found_name, st.session_state.tz_pilihan = name_res, tz_res
+            st.sidebar.success(f"📍 Ditemukan: {name_res}")
 else:
-    lat, lon, tz_pilihan = lokasi_favorit[pilihan]
-    found_name = pilihan
+    lat_fav, lon_fav, tz_fav = lokasi_favorit[pilihan]
+    st.session_state.lat, st.session_state.lon = lat_fav, lon_fav
+    st.session_state.found_name, st.session_state.tz_pilihan = pilihan, tz_fav
+
+lat, lon = st.session_state.lat, st.session_state.lon
+found_name = st.session_state.found_name
+tz_pilihan = st.session_state.tz_pilihan
 
 tz_local = pytz.timezone(tz_pilihan)
 now_local = datetime.now(tz_local)
@@ -128,21 +138,11 @@ model_info = {
     "ukmo_seamless": "Inggris"
 }
 
-params = {
-    "latitude": lat, "longitude": lon,
-    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
-               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
-    "models": list(model_info.keys()),
-    "timezone": tz_pilihan,
-    "forecast_days": 3
-}
-
-# --- LOGIKA KONSENSUS PIN PETA (PERBAIKAN) ---
+# --- LOGIKA KONSENSUS PIN PETA ---
 pin_color = "green"
 worst_desc = "Cerah"
 
 try:
-    # Ambil data jam pertama (current hour) dari semua model
     res_now = requests.get("https://api.open-meteo.com/v1/forecast", params={
         "latitude": lat, "longitude": lon,
         "hourly": ["weather_code"],
@@ -150,7 +150,6 @@ try:
         "timezone": tz_pilihan, "forecast_days": 1
     }).json()
     
-    # Ambil semua kode dari model yang ada datanya
     current_codes = []
     for m in model_info.keys():
         key = f"weather_code_{m}"
@@ -160,11 +159,8 @@ try:
                 current_codes.append(int(val))
     
     if current_codes:
-        # Gunakan Suara Terbanyak (Mode) untuk deskripsi Pin
         most_common_code = Counter(current_codes).most_common(1)[0][0]
         worst_desc = get_weather_desc(most_common_code)
-        
-        # Gunakan Kode Tertinggi untuk menentukan warna Pin (Prinsip Safety/Terburuk)
         max_code = max(current_codes)
         if max_code >= 95: pin_color = "red"
         elif max_code >= 51: pin_color = "blue"
@@ -173,9 +169,10 @@ try:
 except:
     pass
 
-# --- HEADER & PETA ---
+# --- HEADER & PETA (DENGAN FITUR KLIK) ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
 st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
+st.info("💡 **Tips:** Anda bisa mengetik lokasi di sidebar atau **langsung klik di peta** untuk mengubah titik analisis.")
 
 m = folium.Map(location=[lat, lon], zoom_start=12)
 folium.Marker(
@@ -185,10 +182,33 @@ folium.Marker(
     icon=folium.Icon(color=pin_color, icon='cloud' if pin_color != 'green' else 'sun')
 ).add_to(m)
 
-st_folium(m, width=None, height=350, returned_objects=[])
+# Tampilkan peta dan tangkap data klik
+map_data = st_folium(m, width=None, height=350, key="peta_utama")
+
+# Logika jika peta diklik
+if map_data['last_clicked']:
+    clicked_lat = map_data['last_clicked']['lat']
+    clicked_lon = map_data['last_clicked']['lng']
+    
+    # Hanya update jika koordinat berbeda (menghindari loop)
+    if clicked_lat != st.session_state.lat or clicked_lon != st.session_state.lon:
+        st.session_state.lat = clicked_lat
+        st.session_state.lon = clicked_lon
+        st.session_state.found_name = f"Koordinat Custom ({clicked_lat:.4f}, {clicked_lon:.4f})"
+        st.rerun()
+
 st.markdown("---")
 
 # --- GRAFIK & TABEL ---
+params = {
+    "latitude": lat, "longitude": lon,
+    "hourly": ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", 
+               "wind_direction_10m", "weather_code", "precipitation_probability", "precipitation"],
+    "models": list(model_info.keys()),
+    "timezone": tz_pilihan,
+    "forecast_days": 3
+}
+
 try:
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
     df = pd.DataFrame(res["hourly"])
