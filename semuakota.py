@@ -11,6 +11,7 @@ st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
 
 # --- FUNGSI PENDUKUNG ---
 def get_coordinates(city_name):
+    """Mencari koordinat dan timezone otomatis berdasarkan nama kota"""
     try:
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=id&format=json"
         res = requests.get(url).json()
@@ -38,11 +39,11 @@ def degrees_to_direction(deg):
     idx = int((deg + 22.5) / 45) % 8
     return directions[idx]
 
-# --- FUNGSI ANALISIS KONSENSUS ---
 def analyze_consensus(conditions_list):
-    # Kelompokkan kondisi agar lebih mudah dihitung (Hujan, Mendung, atau Cerah)
+    """Menganalisis kekompakan model"""
     simplified_conds = []
     for c in conditions_list:
+        if c == "N/A": continue
         if "Hujan" in c or "Gerimis" in c or "Badai" in c:
             simplified_conds.append("Hujan/Badai")
         elif "Mendung" in c or "Berawan" in c:
@@ -50,24 +51,25 @@ def analyze_consensus(conditions_list):
         else:
             simplified_conds.append("Cerah")
     
+    if not simplified_conds: return "⚠️ Data tidak cukup untuk analisis", "warning"
+    
     counts = Counter(simplified_conds)
     most_common, num = counts.most_common(1)[0]
-    total = len(conditions_list)
-    percentage = (num / total) * 100
+    percentage = (num / len(simplified_conds)) * 100
     
     if percentage >= 70:
         return f"🟢 **Tinggi ({percentage:.0f}%)** - Model sangat kompak memprediksi {most_common}.", "success"
     elif percentage >= 40:
         return f"🟡 **Sedang ({percentage:.0f}%)** - Model cukup setuju pada kondisi {most_common}.", "info"
     else:
-        return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Forecaster wajib cek satelit!", "warning"
+        return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Cek Satelit & Radar!", "warning"
 
-# --- SIDEBAR ---
+# --- SIDEBAR: LOGO & PENCARIAN LOKASI ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
     with col_logo2: st.image("bmkg.png", width=100)
 except:
-    st.sidebar.warning("Logo tidak ditemukan")
+    st.sidebar.warning("File bmkg.png tidak ditemukan")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🌍 Penentuan Lokasi")
@@ -100,11 +102,13 @@ st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S'
 
 # --- HEADER DASHBOARD ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
-st.markdown(f"Analisis Multi-Model untuk **{pilihan if pilihan != 'Cari Lokasi Lain...' else found_name if input_kota else 'Sentani'}**")
+st.markdown(f"Analisis Multi-Model Global untuk **{pilihan if pilihan != 'Cari Lokasi Lain...' else found_name if input_kota else 'Sentani'}**")
 
-# --- PETA & DATA ---
+# --- PETA ---
 st.map(pd.DataFrame({'lat': [lat], 'lon': [lon]}), zoom=12)
+st.markdown("---")
 
+# --- KONFIGURASI DATA ---
 model_info = {
     "ecmwf_ifs": "Eropa", "gfs_seamless": "Amerika S.", "jma_seamless": "Jepang",
     "icon_seamless": "Jerman", "gem_seamless": "Kanada", "meteofrance_seamless": "Prancis",
@@ -125,7 +129,7 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # --- LOGIKA TABEL & KONSENSUS ---
+    # --- TABEL PERIODE ---
     pilihan_rentang = []
     urutan_waktu = [(0, 6, "DINI HARI"), (6, 12, "PAGI"), (12, 18, "SIANG"), (18, 24, "MALAM")]
 
@@ -145,12 +149,19 @@ try:
             conditions_for_analysis = []
             
             for m, negara in model_info.items():
-                code = df_kat[f"weather_code_{m}"].max()
-                desc = get_weather_desc(code)
+                # Proteksi NaN untuk Integer Conversion
+                raw_code = df_kat[f"weather_code_{m}"].max()
+                raw_prob = df_kat[f"precipitation_probability_{m}"].max()
+                
+                # Handling NaN
+                code_val = raw_code if not np.isnan(raw_code) else None
+                prob_val = raw_prob if not np.isnan(raw_prob) else 0
+                
+                desc = get_weather_desc(code_val)
                 conditions_for_analysis.append(desc)
                 
-                t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                prob = df_kat[f"precipitation_probability_{m}"].max()
+                t_min = df_kat[f"temperature_2m_{m}"].min()
+                t_max = df_kat[f"temperature_2m_{m}"].max()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
                 w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
@@ -159,13 +170,12 @@ try:
                     "Model": m.split('_')[0].upper(), 
                     "Asal": negara, 
                     "Kondisi": desc,
-                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}", 
-                    "Prob. Hujan": f"{int(prob)}%", 
+                    "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
+                    "Prob. Hujan": f"{int(prob_val)}%", 
                     "Curah (mm)": round(np.nan_to_num(prec), 1),
-                    "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}"
+                    "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
                 })
             
-            # Tampilkan Tabel
             st.table(pd.DataFrame(data_tabel))
             
             # Tampilkan Analisis Konsensus
@@ -178,4 +188,4 @@ except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
 
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>© 2026 Kedeng V | Stamet Sentani Smart Dashboard</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>© 2026 Kedeng V | Smart Weather Consensus System</div>", unsafe_allow_html=True)
