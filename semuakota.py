@@ -62,7 +62,7 @@ def analyze_consensus(conditions_list):
     else:
         return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Wajib cek Satelit!", "warning"
 
-# --- SIDEBAR ---
+# --- SIDEBAR & LOGIKA PENENTUAN LOKASI ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
     with col_logo2: st.image("bmkg.png", width=100)
@@ -80,6 +80,9 @@ lokasi_favorit = {
 
 pilihan = st.sidebar.selectbox("Pilih Lokasi:", list(lokasi_favorit.keys()))
 
+# Inisialisasi default untuk menghindari NameError
+found_name = "Sentani (Stamet)"
+
 if pilihan == "Cari Lokasi Lain...":
     input_kota = st.sidebar.text_input("Ketik Nama Kota/Kecamatan:", placeholder="Contoh: Wamena")
     if input_kota:
@@ -87,8 +90,10 @@ if pilihan == "Cari Lokasi Lain...":
         if lat: st.sidebar.success(f"📍 Ditemukan: {found_name}")
         else:
             lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
+            found_name = "Sentani (Stamet)"
     else:
         lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
+        found_name = "Sentani (Stamet)"
 else:
     lat, lon, tz_pilihan = lokasi_favorit[pilihan]
     found_name = pilihan
@@ -141,16 +146,14 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # --- BAGIAN GRAFIK (YANG TADI HILANG) ---
+    # --- BAGIAN GRAFIK ---
     st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({tz_pilihan})")
     col_chart1, col_chart2 = st.columns(2)
     
-    # Tren Suhu
     temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
     df_temp_chart = df[['time']].copy()
     df_temp_chart['Suhu Rata-rata (°C)'] = df[temp_cols].mean(axis=1)
     
-    # Tren Probabilitas Hujan
     prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
     df_prob_chart = df[['time']].copy()
     df_prob_chart['Peluang Hujan Maks (%)'] = df[prob_cols].max(axis=1)
