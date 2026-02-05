@@ -11,7 +11,6 @@ st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
 
 # --- FUNGSI PENDUKUNG ---
 def get_coordinates(city_name):
-    """Mencari koordinat dan timezone otomatis berdasarkan nama kota"""
     try:
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=id&format=json"
         res = requests.get(url).json()
@@ -40,7 +39,6 @@ def degrees_to_direction(deg):
     return directions[idx]
 
 def analyze_consensus(conditions_list):
-    """Menganalisis kekompakan model"""
     simplified_conds = []
     for c in conditions_list:
         if c == "N/A": continue
@@ -51,7 +49,7 @@ def analyze_consensus(conditions_list):
         else:
             simplified_conds.append("Cerah")
     
-    if not simplified_conds: return "⚠️ Data tidak cukup untuk analisis", "warning"
+    if not simplified_conds: return "⚠️ Data tidak cukup", "warning"
     
     counts = Counter(simplified_conds)
     most_common, num = counts.most_common(1)[0]
@@ -62,9 +60,9 @@ def analyze_consensus(conditions_list):
     elif percentage >= 40:
         return f"🟡 **Sedang ({percentage:.0f}%)** - Model cukup setuju pada kondisi {most_common}.", "info"
     else:
-        return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Cek Satelit & Radar!", "warning"
+        return f"🔴 **Rendah ({percentage:.0f}%)** - Model berbeda pendapat. Wajib cek Satelit!", "warning"
 
-# --- SIDEBAR: LOGO, LOKASI & DISCLAIMER ---
+# --- SIDEBAR ---
 try:
     col_logo1, col_logo2, col_logo3 = st.sidebar.columns([1, 2, 1])
     with col_logo2: st.image("bmkg.png", width=100)
@@ -88,42 +86,37 @@ if pilihan == "Cari Lokasi Lain...":
         lat, lon, found_name, tz_pilihan = get_coordinates(input_kota)
         if lat: st.sidebar.success(f"📍 Ditemukan: {found_name}")
         else:
-            st.sidebar.error("❌ Lokasi tidak ditemukan")
             lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
     else:
         lat, lon, tz_pilihan = -2.5757, 140.5185, "Asia/Jayapura"
 else:
     lat, lon, tz_pilihan = lokasi_favorit[pilihan]
+    found_name = pilihan
 
 tz_local = pytz.timezone(tz_pilihan)
 now_local = datetime.now(tz_local)
 
 st.sidebar.info(f"🕒 **Waktu Lokal:**\n{now_local.strftime('%d %b %Y %H:%M:%S')} {tz_pilihan}")
 
-# --- REFERENSI FORECASTER ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔗 Referensi Forecaster")
 st.sidebar.link_button("🌐 MJO, Gel. Ekuator (OLR)", "https://ncics.org/pub/mjo/v2/map/olr.cfs.all.indonesia.1.png")
 st.sidebar.link_button("🛰️ Streamline BMKG", "https://www.bmkg.go.id/#cuaca-iklim-5")
 st.sidebar.link_button("🌀 Animasi Satelit (Live)", "http://202.90.198.22/IMAGE/ANIMASI/H08_EH_Region5_m18.gif")
 
-# --- DISCLAIMER (SUDAH DIKEMBALIKAN) ---
 st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
-Data ini adalah luaran model numerik sebagai alat bantu diagnosa. 
-    
-Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan parameter:
+Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
 * Streamline & Isobar
 * Indeks Global (MJO, IOD, ENSO)
 * Kondisi Lokal & Satelit
 """)
 
-# --- HEADER DASHBOARD ---
+# --- HEADER & PETA ---
 st.title("🛰️ Dashboard Cuaca Smart Consensus System")
-st.markdown(f"Analisis Multi-Model Global untuk **{pilihan if pilihan != 'Cari Lokasi Lain...' else found_name if 'found_name' in locals() else 'Sentani'}**")
+st.markdown(f"Analisis Multi-Model Global untuk **{found_name}**")
 
-# --- PETA ---
 st.map(pd.DataFrame({'lat': [lat], 'lon': [lon]}), zoom=12)
 st.markdown("---")
 
@@ -147,6 +140,30 @@ try:
     res = requests.get("https://api.open-meteo.com/v1/forecast", params=params).json()
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
+
+    # --- BAGIAN GRAFIK (YANG TADI HILANG) ---
+    st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({tz_pilihan})")
+    col_chart1, col_chart2 = st.columns(2)
+    
+    # Tren Suhu
+    temp_cols = [f"temperature_2m_{m}" for m in model_info.keys()]
+    df_temp_chart = df[['time']].copy()
+    df_temp_chart['Suhu Rata-rata (°C)'] = df[temp_cols].mean(axis=1)
+    
+    # Tren Probabilitas Hujan
+    prob_cols = [f"precipitation_probability_{m}" for m in model_info.keys()]
+    df_prob_chart = df[['time']].copy()
+    df_prob_chart['Peluang Hujan Maks (%)'] = df[prob_cols].max(axis=1)
+
+    with col_chart1:
+        st.write("**Grafik Fluktuasi Suhu (°C)**")
+        st.line_chart(df_temp_chart.set_index('time').head(48))
+
+    with col_chart2:
+        st.write("**Grafik Peluang Hujan (%)**")
+        st.area_chart(df_prob_chart.set_index('time').head(48))
+    
+    st.markdown("---")
 
     # --- TABEL PERIODE ---
     pilihan_rentang = []
@@ -204,4 +221,4 @@ except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
 
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>© 2026 Kedeng V | Smart Weather Consensus System</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: gray; font-size: 0.8em;'>© 2026 Kedeng V | Stamet Sentani Smart Dashboard</div>", unsafe_allow_html=True)
