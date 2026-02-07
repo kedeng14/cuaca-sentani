@@ -254,7 +254,7 @@ try:
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
 
-    # --- BOT AI FORECASTER (PERBAIKAN MODEL 404) ---
+    # --- BOT AI FORECASTER (PERBAIKAN DETEKSI OTOMATIS) ---
     st.markdown("---")
     st.subheader("🤖 Chat dengan Weather AI")
     
@@ -263,35 +263,52 @@ try:
             api_key_ai = st.secrets["GEMINI_API_KEY"].strip()
             genai.configure(api_key=api_key_ai)
             
-            # Perbaikan penamaan model agar tidak 404
-            model_ai = genai.GenerativeModel('models/gemini-1.5-flash')
+            # LOGIKA DETEKSI OTOMATIS: Mencari model yang tersedia di akun Bapak
+            if "model_aktif" not in st.session_state:
+                try:
+                    models = genai.list_models()
+                    available_names = [m.name for m in models if 'generateContent' in m.supported_generation_methods]
+                    # Cari flash dulu, kalau tidak ada pakai pro
+                    if any("gemini-1.5-flash" in n for n in available_names):
+                        st.session_state.model_aktif = "models/gemini-1.5-flash"
+                    elif any("gemini-pro" in n for n in available_names):
+                        st.session_state.model_aktif = "gemini-pro"
+                    else:
+                        st.session_state.model_aktif = available_names[0] if available_names else None
+                except:
+                    st.session_state.model_aktif = "gemini-pro" # Fallback
 
-            if "messages" not in st.session_state:
-                st.session_state.messages = []
+            if st.session_state.model_aktif:
+                model_ai = genai.GenerativeModel(st.session_state.model_aktif)
 
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
+                if "messages" not in st.session_state:
+                    st.session_state.messages = []
 
-            if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
+                for msg in st.session_state.messages:
+                    with st.chat_message(msg["role"]):
+                        st.markdown(msg["content"])
 
-                with st.chat_message("assistant"):
-                    konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
-                               f"Kondisi saat ini: {worst_desc}. "
-                               f"Peluang hujan maksimum hari ini: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
-                    
-                    full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
-                                   f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah dan teknis: {prompt}")
-                    
-                    try:
-                        response = model_ai.generate_content(full_prompt)
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as gen_err:
-                        st.error(f"Gagal memproses jawaban AI: {gen_err}")
+                if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
+                    st.session_state.messages.append({"role": "user", "content": prompt})
+                    with st.chat_message("user"):
+                        st.markdown(prompt)
+
+                    with st.chat_message("assistant"):
+                        konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
+                                   f"Kondisi saat ini: {worst_desc}. "
+                                   f"Peluang hujan maksimum hari ini: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
+                        
+                        full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
+                                       f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah dan teknis: {prompt}")
+                        
+                        try:
+                            response = model_ai.generate_content(full_prompt)
+                            st.markdown(response.text)
+                            st.session_state.messages.append({"role": "assistant", "content": response.text})
+                        except Exception as gen_err:
+                            st.error(f"Gagal memproses jawaban AI: {gen_err}")
+            else:
+                st.warning("Tidak ditemukan model yang mendukung di akun API ini.")
         else:
             st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
