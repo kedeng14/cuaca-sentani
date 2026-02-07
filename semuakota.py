@@ -254,7 +254,7 @@ try:
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
 
-    # --- BOT AI FORECASTER (PERBAIKAN DETEKSI OTOMATIS) ---
+    # --- BOT AI FORECASTER (LOGIKA DETEKSI OTOMATIS) ---
     st.markdown("---")
     st.subheader("🤖 Chat dengan Weather AI")
     
@@ -263,22 +263,22 @@ try:
             api_key_ai = st.secrets["GEMINI_API_KEY"].strip()
             genai.configure(api_key=api_key_ai)
             
-            # LOGIKA DETEKSI OTOMATIS: Mencari model yang tersedia di akun Bapak
+            # Deteksi Otomatis Model yang didukung oleh Library & Akun
             if "model_aktif" not in st.session_state:
                 try:
-                    models = genai.list_models()
-                    available_names = [m.name for m in models if 'generateContent' in m.supported_generation_methods]
-                    # Cari flash dulu, kalau tidak ada pakai pro
-                    if any("gemini-1.5-flash" in n for n in available_names):
-                        st.session_state.model_aktif = "models/gemini-1.5-flash"
-                    elif any("gemini-pro" in n for n in available_names):
+                    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    # Prioritas Flash, lalu Pro, lalu apa saja yang ada
+                    if any("gemini-1.5-flash" in n for n in available_models):
+                        st.session_state.model_aktif = "gemini-1.5-flash"
+                    elif any("gemini-pro" in n for n in available_models):
                         st.session_state.model_aktif = "gemini-pro"
                     else:
-                        st.session_state.model_aktif = available_names[0] if available_names else None
+                        st.session_state.model_aktif = available_models[0].replace('models/', '') if available_models else None
                 except:
                     st.session_state.model_aktif = "gemini-pro" # Fallback
 
             if st.session_state.model_aktif:
+                # Menggunakan penulisan model sederhana agar kompatibel dengan library lama/baru
                 model_ai = genai.GenerativeModel(st.session_state.model_aktif)
 
                 if "messages" not in st.session_state:
@@ -308,7 +308,7 @@ try:
                         except Exception as gen_err:
                             st.error(f"Gagal memproses jawaban AI: {gen_err}")
             else:
-                st.warning("Tidak ditemukan model yang mendukung di akun API ini.")
+                st.warning("⚠️ Tidak ditemukan model AI yang tersedia di akun ini.")
         else:
             st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
