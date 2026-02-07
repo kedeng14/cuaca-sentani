@@ -254,66 +254,67 @@ try:
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
 
-    # --- BOT AI FORECASTER (LOGIKA DETEKSI OTOMATIS) ---
+    # --- BOT AI FORECASTER (PERBAIKAN TOTAL) ---
     st.markdown("---")
     st.subheader("🤖 Chat dengan Weather AI")
     
-    try:
-        if "GEMINI_API_KEY" in st.secrets:
-            api_key_ai = st.secrets["GEMINI_API_KEY"].strip()
-            genai.configure(api_key=api_key_ai)
+    if "GEMINI_API_KEY" in st.secrets:
+        try:
+            # 1. Konfigurasi API dengan API Key dari Secrets
+            genai.configure(api_key=st.secrets["GEMINI_API_KEY"].strip())
             
-            # Deteksi Otomatis Model yang didukung oleh Library & Akun
+            # 2. Pemilihan Model (Deteksi Otomatis untuk menghindari Error 404)
             if "model_aktif" not in st.session_state:
                 try:
-                    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    # Prioritas Flash, lalu Pro, lalu apa saja yang ada
-                    if any("gemini-1.5-flash" in n for n in available_models):
+                    # Ambil daftar model yang tersedia di akun Bapak
+                    m_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                    # Prioritaskan Flash 1.5, jika tidak ada pakai Pro
+                    if any("gemini-1.5-flash" in x for x in m_list):
                         st.session_state.model_aktif = "gemini-1.5-flash"
-                    elif any("gemini-pro" in n for n in available_models):
+                    elif any("gemini-pro" in x for x in m_list):
                         st.session_state.model_aktif = "gemini-pro"
                     else:
-                        st.session_state.model_aktif = available_models[0].replace('models/', '') if available_models else None
+                        st.session_state.model_aktif = m_list[0].replace('models/', '') if m_list else "gemini-pro"
                 except:
-                    st.session_state.model_aktif = "gemini-pro" # Fallback
+                    st.session_state.model_aktif = "gemini-pro"
 
-            if st.session_state.model_aktif:
-                # Menggunakan penulisan model sederhana agar kompatibel dengan library lama/baru
-                model_ai = genai.GenerativeModel(st.session_state.model_aktif)
+            # 3. Inisialisasi Model AI
+            model_ai = genai.GenerativeModel(st.session_state.model_aktif)
+            
+            # 4. Inisialisasi & Tampilkan Riwayat Pesan
+            if "messages" not in st.session_state:
+                st.session_state.messages = []
 
-                if "messages" not in st.session_state:
-                    st.session_state.messages = []
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
 
-                for msg in st.session_state.messages:
-                    with st.chat_message(msg["role"]):
-                        st.markdown(msg["content"])
+            # 5. Input Pesan User
+            if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
 
-                if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
-                    st.session_state.messages.append({"role": "user", "content": prompt})
-                    with st.chat_message("user"):
-                        st.markdown(prompt)
-
-                    with st.chat_message("assistant"):
-                        konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
-                                   f"Kondisi saat ini: {worst_desc}. "
-                                   f"Peluang hujan maksimum hari ini: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
+                with st.chat_message("assistant"):
+                    # Siapkan Konteks Data untuk AI
+                    konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
+                               f"Kondisi saat ini: {worst_desc}. "
+                               f"Peluang hujan maksimum: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
+                    
+                    full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
+                                   f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah: {prompt}")
+                    
+                    try:
+                        response = model_ai.generate_content(full_prompt)
+                        st.markdown(response.text)
+                        st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    except Exception as gen_err:
+                        st.error(f"Gagal memproses jawaban AI: {gen_err}")
                         
-                        full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
-                                       f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah dan teknis: {prompt}")
-                        
-                        try:
-                            response = model_ai.generate_content(full_prompt)
-                            st.markdown(response.text)
-                            st.session_state.messages.append({"role": "assistant", "content": response.text})
-                        except Exception as gen_err:
-                            st.error(f"Gagal memproses jawaban AI: {gen_err}")
-            else:
-                st.warning("⚠️ Tidak ditemukan model AI yang tersedia di akun ini.")
-        else:
-            st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
-
-    except Exception as e:
-        st.error(f"❌ Terjadi kesalahan pada Bot AI: {e}")
+        except Exception as e:
+            st.error(f"❌ Kesalahan Sistem AI: {e}")
+    else:
+        st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
