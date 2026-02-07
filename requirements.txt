@@ -5,3 +5,4 @@ numpy
 pytz
 streamlit-autorefresh
 streamlit-folium
+google-generativeai
