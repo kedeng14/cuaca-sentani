@@ -7,6 +7,7 @@ import pytz
 from collections import Counter
 import folium
 from streamlit_folium import st_folium
+import google.generativeai as genai # Tambahan library untuk AI
 
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
@@ -141,7 +142,7 @@ params = {
     "forecast_days": 3
 }
 
-# --- LOGIKA KONSENSUS PIN PETA (PERBAIKAN) ---
+# --- LOGIKA KONSENSUS PIN PETA ---
 pin_color = "green"
 worst_desc = "Cerah"
 
@@ -194,7 +195,6 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
-    # PERUBAHAN DISINI: Judul menggunakan format GMT
     st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({gmt_display})")
     col_chart1, col_chart2 = st.columns(2)
     
@@ -261,6 +261,46 @@ try:
             if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
+
+    # --- BAGIAN BARU: BOT AI FORECASTER ---
+    st.markdown("---")
+    st.subheader("🤖 Chat dengan Weather AI")
+    
+    try:
+        # Mengambil API Key dari Secrets Streamlit
+        api_key_ai = st.secrets["GEMINI_API_KEY"]
+        genai.configure(api_key=api_key_ai)
+        model_ai = genai.GenerativeModel('gemini-1.5-flash')
+
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        # Tampilkan riwayat chat
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        # Input chat dari user
+        if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                # Memberikan konteks data agar AI tahu apa yang terjadi di dashboard
+                konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
+                           f"Kondisi saat ini menurut konsensus: {worst_desc}. "
+                           f"Peluang hujan maksimum hari ini: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
+                
+                full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
+                               f"Jawablah pertanyaan berikut dengan gaya bahasa forecaster BMKG yang ramah dan teknis: {prompt}")
+                
+                response = model_ai.generate_content(full_prompt)
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+
+    except Exception as e:
+        st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
