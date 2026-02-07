@@ -103,7 +103,6 @@ else:
 tz_local = pytz.timezone(tz_pilihan)
 now_local = datetime.now(tz_local)
 
-# Menghitung Offset GMT untuk tampilan user
 gmt_offset = now_local.strftime('%z')
 gmt_display = f"GMT+{int(gmt_offset[:3])}" if gmt_offset.startswith('+') else f"GMT{int(gmt_offset[:3])}"
 
@@ -119,11 +118,7 @@ st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
 Data ini adalah luaran model numerik sebagai alat bantu diagnosa.
-
-Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
-* Streamline & Isobar
-* Indeks Global (MJO, IOD, ENSO)
-* Kondisi Lokal & Satelit
+Keputusan akhir berada pada Analisis Forecaster.
 """)
 
 # --- KONFIGURASI DATA ---
@@ -165,7 +160,6 @@ try:
     if current_codes:
         most_common_code = Counter(current_codes).most_common(1)[0][0]
         worst_desc = get_weather_desc(most_common_code)
-        
         max_code = max(current_codes)
         if max_code >= 95: pin_color = "red"
         elif max_code >= 51: pin_color = "blue"
@@ -239,10 +233,8 @@ try:
                 raw_prob = df_kat[f"precipitation_probability_{m}"].max()
                 code_val = raw_code if not np.isnan(raw_code) else None
                 prob_val = raw_prob if not np.isnan(raw_prob) else 0
-                
                 desc = get_weather_desc(code_val)
                 conditions_for_analysis.append(desc)
-                
                 t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
@@ -262,16 +254,17 @@ try:
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
 
-    # --- BOT AI FORECASTER ---
+    # --- BOT AI FORECASTER (PERBAIKAN MODEL 404) ---
     st.markdown("---")
     st.subheader("🤖 Chat dengan Weather AI")
     
     try:
         if "GEMINI_API_KEY" in st.secrets:
-            # Mengambil dan membersihkan spasi dari API Key
             api_key_ai = st.secrets["GEMINI_API_KEY"].strip()
             genai.configure(api_key=api_key_ai)
-            model_ai = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Perbaikan penamaan model agar tidak 404
+            model_ai = genai.GenerativeModel('models/gemini-1.5-flash')
 
             if "messages" not in st.session_state:
                 st.session_state.messages = []
@@ -288,14 +281,17 @@ try:
                 with st.chat_message("assistant"):
                     konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
                                f"Kondisi saat ini: {worst_desc}. "
-                               f"Peluang hujan maksimum: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
+                               f"Peluang hujan maksimum hari ini: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
                     
                     full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
-                                   f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah: {prompt}")
+                                   f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah dan teknis: {prompt}")
                     
-                    response = model_ai.generate_content(full_prompt)
-                    st.markdown(response.text)
-                    st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    try:
+                        response = model_ai.generate_content(full_prompt)
+                        st.markdown(response.text)
+                        st.session_state.messages.append({"role": "assistant", "content": response.text})
+                    except Exception as gen_err:
+                        st.error(f"Gagal memproses jawaban AI: {gen_err}")
         else:
             st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
