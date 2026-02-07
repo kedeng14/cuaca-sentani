@@ -7,7 +7,6 @@ import pytz
 from collections import Counter
 import folium
 from streamlit_folium import st_folium
-import google.generativeai as genai
 
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
@@ -103,6 +102,7 @@ else:
 tz_local = pytz.timezone(tz_pilihan)
 now_local = datetime.now(tz_local)
 
+# Menghitung Offset GMT untuk tampilan user
 gmt_offset = now_local.strftime('%z')
 gmt_display = f"GMT+{int(gmt_offset[:3])}" if gmt_offset.startswith('+') else f"GMT{int(gmt_offset[:3])}"
 
@@ -118,7 +118,11 @@ st.sidebar.markdown("---")
 st.sidebar.warning("""
 **📢 DISCLAIMER:**
 Data ini adalah luaran model numerik sebagai alat bantu diagnosa.
-Keputusan akhir berada pada Analisis Forecaster.
+
+Keputusan akhir berada pada **Analisis Forecaster** dengan mempertimbangkan:
+* Streamline & Isobar
+* Indeks Global (MJO, IOD, ENSO)
+* Kondisi Lokal & Satelit
 """)
 
 # --- KONFIGURASI DATA ---
@@ -137,7 +141,7 @@ params = {
     "forecast_days": 3
 }
 
-# --- LOGIKA KONSENSUS PIN PETA ---
+# --- LOGIKA KONSENSUS PIN PETA (PERBAIKAN) ---
 pin_color = "green"
 worst_desc = "Cerah"
 
@@ -160,6 +164,7 @@ try:
     if current_codes:
         most_common_code = Counter(current_codes).most_common(1)[0][0]
         worst_desc = get_weather_desc(most_common_code)
+        
         max_code = max(current_codes)
         if max_code >= 95: pin_color = "red"
         elif max_code >= 51: pin_color = "blue"
@@ -189,6 +194,7 @@ try:
     df = pd.DataFrame(res["hourly"])
     df['time'] = pd.to_datetime(df['time']).dt.tz_localize(None)
 
+    # PERUBAHAN DISINI: Judul menggunakan format GMT
     st.subheader(f"📊 Tren Cuaca 48 Jam Ke Depan ({gmt_display})")
     col_chart1, col_chart2 = st.columns(2)
     
@@ -233,8 +239,10 @@ try:
                 raw_prob = df_kat[f"precipitation_probability_{m}"].max()
                 code_val = raw_code if not np.isnan(raw_code) else None
                 prob_val = raw_prob if not np.isnan(raw_prob) else 0
+                
                 desc = get_weather_desc(code_val)
                 conditions_for_analysis.append(desc)
+                
                 t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
@@ -253,68 +261,6 @@ try:
             if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
-
-    # --- BOT AI FORECASTER (PERBAIKAN TOTAL) ---
-    st.markdown("---")
-    st.subheader("🤖 Chat dengan Weather AI")
-    
-    if "GEMINI_API_KEY" in st.secrets:
-        try:
-            # 1. Konfigurasi API dengan API Key dari Secrets
-            genai.configure(api_key=st.secrets["GEMINI_API_KEY"].strip())
-            
-            # 2. Pemilihan Model (Deteksi Otomatis untuk menghindari Error 404)
-            if "model_aktif" not in st.session_state:
-                try:
-                    # Ambil daftar model yang tersedia di akun Bapak
-                    m_list = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                    # Prioritaskan Flash 1.5, jika tidak ada pakai Pro
-                    if any("gemini-1.5-flash" in x for x in m_list):
-                        st.session_state.model_aktif = "gemini-1.5-flash"
-                    elif any("gemini-pro" in x for x in m_list):
-                        st.session_state.model_aktif = "gemini-pro"
-                    else:
-                        st.session_state.model_aktif = m_list[0].replace('models/', '') if m_list else "gemini-pro"
-                except:
-                    st.session_state.model_aktif = "gemini-pro"
-
-            # 3. Inisialisasi Model AI
-            model_ai = genai.GenerativeModel(st.session_state.model_aktif)
-            
-            # 4. Inisialisasi & Tampilkan Riwayat Pesan
-            if "messages" not in st.session_state:
-                st.session_state.messages = []
-
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-
-            # 5. Input Pesan User
-            if prompt := st.chat_input("Tanyakan cuaca atau saran operasional..."):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-
-                with st.chat_message("assistant"):
-                    # Siapkan Konteks Data untuk AI
-                    konteks = (f"Lokasi: {found_name}. Waktu Lokal: {now_local.strftime('%H:%M')} ({gmt_display}). "
-                               f"Kondisi saat ini: {worst_desc}. "
-                               f"Peluang hujan maksimum: {df_prob_chart['Peluang Hujan Maks (%)'].max()}%.")
-                    
-                    full_prompt = (f"Anda adalah asisten cerdas Stamet Sentani. Gunakan data berikut: {konteks}. "
-                                   f"Jawablah dengan gaya bahasa forecaster BMKG yang ramah: {prompt}")
-                    
-                    try:
-                        response = model_ai.generate_content(full_prompt)
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as gen_err:
-                        st.error(f"Gagal memproses jawaban AI: {gen_err}")
-                        
-        except Exception as e:
-            st.error(f"❌ Kesalahan Sistem AI: {e}")
-    else:
-        st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
