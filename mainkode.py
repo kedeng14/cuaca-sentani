@@ -7,7 +7,6 @@ import pytz
 from collections import Counter
 import folium
 from streamlit_folium import st_folium
-import google.generativeai as genai
 
 # 1. Konfigurasi Halaman
 st.set_page_config(page_title="Dashboard Cuaca Smart System", layout="wide")
@@ -75,9 +74,9 @@ except:
 st.sidebar.markdown("---")
 st.sidebar.subheader("🌍 Penentuan Lokasi")
 
+# Kota Madiun telah dihapus dari daftar di bawah ini
 lokasi_favorit = {
     "Sentani (Stamet)": [-2.5757, 140.5185, "Asia/Jayapura"],
-    "Madiun (Kota)": [-7.6257, 111.5302, "Asia/Jakarta"],
     "Cari Lokasi Lain...": [None, None, None]
 }
 
@@ -253,61 +252,6 @@ try:
             if msg_type == "success": st.success(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             elif msg_type == "info": st.info(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
             else: st.warning(f"🤝 **Tingkat Kepastian:** {consensus_msg}")
-
-    # --- BOT AI FORECASTER (PERBAIKAN TOTAL ERROR 404) ---
-    st.markdown("---")
-    st.subheader("🤖 Chat dengan Weather AI")
-    
-    try:
-        if "GEMINI_API_KEY" in st.secrets:
-            api_key_ai = st.secrets["GEMINI_API_KEY"].strip()
-            genai.configure(api_key=api_key_ai)
-            
-            # Mendeteksi model yang tersedia secara manual
-            # Kita cari model 'gemini-1.5-flash' atau 'gemini-pro' dalam daftar m.name
-            if "model_pilihan" not in st.session_state:
-                try:
-                    all_models = [m.name for m in genai.list_models()]
-                    # Seleksi model berdasarkan apa yang tersedia di server
-                    if any("gemini-1.5-flash" in n for n in all_models):
-                        st.session_state.model_pilihan = "gemini-1.5-flash"
-                    elif any("gemini-pro" in n for n in all_models):
-                        st.session_state.model_pilihan = "gemini-pro"
-                    else:
-                        st.session_state.model_pilihan = all_models[0].split('/')[-1] if all_models else "gemini-pro"
-                except:
-                    st.session_state.model_pilihan = "gemini-pro" # Fallback mutlak
-
-            # Menginisialisasi Model
-            model_ai = genai.GenerativeModel(model_name=st.session_state.model_pilihan)
-
-            if "messages" not in st.session_state:
-                st.session_state.messages = []
-
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-
-            if prompt := st.chat_input("Tanyakan sesuatu ke AI..."):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-
-                with st.chat_message("assistant"):
-                    konteks = f"Lokasi: {found_name}. Cuaca: {worst_desc}."
-                    
-                    try:
-                        # Pemanggilan paling standar tanpa parameter tambahan
-                        response = model_ai.generate_content(f"{konteks}. Jawab pertanyaan: {prompt}")
-                        st.markdown(response.text)
-                        st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except Exception as e_inner:
-                        st.error(f"AI gagal merespons. Model yang digunakan: {st.session_state.model_pilihan}. Error: {e_inner}")
-        else:
-            st.info("ℹ️ Bot AI akan aktif setelah GEMINI_API_KEY dipasang di menu Secrets Streamlit.")
-
-    except Exception as e:
-        st.error(f"❌ Terjadi kesalahan pada Bot AI: {e}")
 
 except Exception as e:
     st.error(f"⚠️ Terjadi gangguan data: {e}")
