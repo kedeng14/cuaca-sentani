@@ -235,8 +235,10 @@ try:
                 conditions_for_analysis.append(desc)
                 
                 t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
-                # Tambahan logika RH
-                rh_val = df_kat[f"relative_humidity_2m_{m}"].mean()
+                
+                # Pembaruan RH: Menampilkan Rentang (Min-Max)
+                rh_min, rh_max = df_kat[f"relative_humidity_2m_{m}"].min(), df_kat[f"relative_humidity_2m_{m}"].max()
+                
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
                 w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
@@ -246,9 +248,9 @@ try:
                     "Asal": negara, 
                     "Kondisi": desc,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
-                    "RH (%)": f"{int(rh_val)}%" if not np.isnan(rh_val) else "N/A",
+                    "RH (%)": f"{int(rh_min)}-{int(rh_max)}" if not np.isnan(rh_min) else "N/A",
                     "Prob. Hujan": f"{int(prob_val)}%", 
-                    "Curah (mm)": round(np.nan_to_num(prec), 1),
+                    "Curah Hujan (mm)": round(np.nan_to_num(prec), 1), # Label kolom diubah
                     "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
                 })
             
