@@ -74,7 +74,6 @@ except:
 st.sidebar.markdown("---")
 st.sidebar.subheader("🌍 Penentuan Lokasi")
 
-# Kota Madiun telah dihapus dari daftar di bawah ini
 lokasi_favorit = {
     "Sentani (Stamet)": [-2.5757, 140.5185, "Asia/Jayapura"],
     "Cari Lokasi Lain...": [None, None, None]
@@ -234,14 +233,20 @@ try:
                 prob_val = raw_prob if not np.isnan(raw_prob) else 0
                 desc = get_weather_desc(code_val)
                 conditions_for_analysis.append(desc)
+                
                 t_min, t_max = df_kat[f"temperature_2m_{m}"].min(), df_kat[f"temperature_2m_{m}"].max()
+                # Tambahan logika RH
+                rh_val = df_kat[f"relative_humidity_2m_{m}"].mean()
                 prec = df_kat[f"precipitation_{m}"].sum()
                 w_spd = df_kat[f"wind_speed_10m_{m}"].mean()
                 w_dir = df_kat[f"wind_direction_10m_{m}"].mean()
 
                 data_tabel.append({
-                    "Model": m.split('_')[0].upper(), "Asal": negara, "Kondisi": desc,
+                    "Model": m.split('_')[0].upper(), 
+                    "Asal": negara, 
+                    "Kondisi": desc,
                     "Suhu (°C)": f"{t_min:.1f}-{t_max:.1f}" if not np.isnan(t_min) else "N/A", 
+                    "RH (%)": f"{int(rh_val)}%" if not np.isnan(rh_val) else "N/A",
                     "Prob. Hujan": f"{int(prob_val)}%", 
                     "Curah (mm)": round(np.nan_to_num(prec), 1),
                     "Angin (km/jam)": f"{w_spd:.1f} {degrees_to_direction(w_dir)}" if not np.isnan(w_spd) else "N/A"
